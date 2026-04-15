@@ -1,2 +1,3 @@
 # ThesisProject
-checking plots and such
+
+Further develop rangePlots and pplots and do some statistical-practice experiments
