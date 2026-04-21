@@ -4,7 +4,7 @@ output: html_document
 date: "2026-04-21"
 ---
 
-# Conservative Tests: 
+# Conservative Tests:
 
 The goal of this notebook is to compare and contrast the **Exact** binomial test against the **Normal Approximation**. In doing so, I will show that the exact approach gives conservative p-values, meaning that their actual Type 1 Error is (often) less than the nominal (chosen) significance level ($\alpha$). With a smaller rate, the probability of (incorrectly) rejecting the null hypothesis is smaller. If we reject the null hypothesis less often, we must have wider confidence intervals (or acceptance regions). Theoretically, we could increase the acceptance region for the exact binomial test, which would result in the normal approximation quantile. In this analysis, the Clopper-Pearson (Exact) and Wald (Normal Approximation) approaches are compared. The Wald is known to be anti-conservative, rejecting more often with smaller acceptance regions. However, the normal approximation can be misleading here we require $n \cdot p >= 5$, but we have $8 \cdot 0.5 = 4$. Because of this, I show a larger example afterwards because the first example shows that the Exact method gives smaller intervals, which shouldn't be the case. This coin flipping example was taken from [here](<https://stats.stackexchange.com/questions/428672/wikipedias-text-about-the-clopper-pearson-interval-for-binomial-proportions>](here), which is why $\alpha = 0.01$ is used. The whole purpose of this is to get me familiar with the different types of tests, forming confidence intervals, and conservatism. The notion of conservative p-values will become important when introducing the randomized p-value to "fuzzify" the discrete case. d
 
