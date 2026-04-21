@@ -64,5 +64,3 @@ pbinom(q = 62, size = flips, prob=p, lower.tail = FALSE) # 0.006
 # however, the quantile for the exact is now less than that of the exact!
 # ie. acceptance regions: [0,61.63] vs [0,62] ... exact is wider (+ conservative) 
 ```
-
-Does this change show?

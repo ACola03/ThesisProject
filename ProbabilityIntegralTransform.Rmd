@@ -1,0 +1,64 @@
+---
+title: "ProbabilityIntegralTransform"
+output: html_document
+date: "2026-04-15"
+---
+
+# Probability Integral Transform:
+
+This is just to help me understand the basic theory on why the p-values should appear uniform in the continuous case and contrast this to the discrete case. The proof is straightforward [here](https://en.wikipedia.org/wiki/Probability_integral_transform){.uri}. In this file, I show how the p-values appear when the null distribution is correctly and incorrectly identified, and what happens to the structure depending on how incorrectly it has been specified. In the final code chunk, I also show why the discrete distribution has the property that $p_0^- \ne 1-p_0^+$ since the outcomes have probability mass, which doesn't occur in the continuous case.
+
+```{r}
+# The simple continuous case.
+
+unifs <- runif(10000000)
+zscore <- qnorm(unifs)
+
+hist(unifs)
+hist(zscore)
+```
+
+```{r}
+# Assume the true distribution is N(1,2), but we assumed it to be N(0,2)
+
+# 1) Simulate values from the N(1,2) but match them back to a N(0,2) CDF
+n <- 10000
+actual <- rnorm(n, mean = 1, sd = sqrt(2))
+hist(actual)
+
+# 2) Match back to incorrect CDF: N(0, 2)
+incorrect.CDF <- pnorm(actual, mean = 0, sd = sqrt(2), lower.tail = FALSE)
+
+# 3) View the CDF distribution
+hist(incorrect.CDF)
+
+# 4) Compare this to if the initial assumption was correct
+correct.CDF <- pnorm(actual, mean = 1, sd = sqrt(2), lower.tail = FALSE)
+hist(correct.CDF)
+
+# Summary:
+# i) If the null distribution is correctly identified, the p-values should be Uniform
+# ii) You must match the data-generating-process to the correct CDF
+# iii) If we underestimate the mean, the p-values will be right-skewed
+# iv) Increasing the incorrect standard deviation reduces the skewness
+```
+
+```{r}
+# For a discrete RV, the left tail is not always equal to 1 - right.tail
+
+library(ggplot2)
+
+discrete <- 
+  data.frame(x = as.factor(c(1,2,3,4,5)),
+             pmass = c(0.1,0.2,0.2,0.1,0.4))
+
+ggplot(data = discrete)+
+       geom_bar(aes(x=x, y=pmass), stat = "identity", width = 0.5)
+
+discrete$left.tail <- cumsum(discrete$pmass)
+discrete$right.tail <- rev(cumsum(rev(discrete$pmass)))
+discrete$one.minus.right <- 1 - discrete$right.tail
+discrete$check <- discrete$left.tail == discrete$one.minus.right
+
+discrete
+```
