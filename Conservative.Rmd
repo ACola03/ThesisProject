@@ -1,0 +1,66 @@
+---
+title: "Conservative"
+output: html_document
+date: "2026-04-21"
+---
+
+# Conservative Tests:
+
+The goal of this notebook is to compare and contrast the **Exact** binomial test against the **Normal Approximation**. In doing so, I will show that the exact approach gives conservative p-values, meaning that their actual Type 1 Error is (often) less than the nominal (chosen) significance level ($\alpha$). With a smaller rate, the probability of (incorrectly) rejecting the null hypothesis is smaller. If we reject the null hypothesis less often, we must have wider confidence intervals (or acceptance regions). Theoretically, we could increase the acceptance region for the exact binomial test, which would result in the normal approximation quantile. In this analysis, the Clopper-Pearson (Exact) and Wald (Normal Approximation) approaches are compared. The Wald is known to be anti-conservative, rejecting more often with smaller acceptance regions. However, the normal approximation can be misleading here we require $n \cdot p >= 5$, but we have $8 \cdot 0.5 = 4$. Because of this, I show a larger example afterwards because the first example shows that the Exact method gives smaller intervals, which shouldn't be the case. This coin flipping example was taken from [here](<https://stats.stackexchange.com/questions/428672/wikipedias-text-about-the-clopper-pearson-interval-for-binomial-proportions>](here), which is why $\alpha = 0.01$ is used. The whole purpose of this is to get me familiar with the different types of tests, forming confidence intervals, and conservatism. The notion of conservative p-values will become important when introducing the randomized p-value to "fuzzify" the discrete case.
+
+```{r}
+n = 1e5
+p = 0.5
+
+# simulate the event of tossing a fair coin 8 times (for n simulations):
+# note: sd = sqrt(n*p*q)
+true <- rbinom(n, 8, p)
+approx <- rnorm(n, mean = 8*p, sd = sqrt(8*p*p))
+
+# show the histograms as a visual check
+hist(approx)
+hist(true, 
+     breaks = c(-0.5,0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5), 
+     freq = FALSE)
+
+# the normal approximation takes a higher quantile
+qnorm(0.01, mean = 8*p, sd = sqrt(8*p*p), lower.tail = FALSE) # 7.289953
+qbinom(0.01, size = 8, prob=p, lower.tail = FALSE) # 7
+
+pnorm(7.289953, mean = 8*p, sd = sqrt(8*p*p), lower.tail = FALSE) # 0.0099
+pbinom(q = 7, size = 8, prob=p, lower.tail = FALSE) # 0.0039
+
+# Conclusion:
+# so the exact has a smaller right tail probability than required: alpha = 0.01
+# EXACT:  0.0030
+# APPROX: 0.0099
+# The actual Type 1 Error rate is less than that of the nominal significance 
+# level (alpha), so the exact binomial test is conservative
+```
+
+```{r}
+n = 1e5
+p = 0.5
+flips = 100
+
+# simulate the event of tossing a fair coin 100 times (for n simulations):
+# note: sd = sqrt(n*p*q)
+true <- rbinom(n, flips, p)
+approx <- rnorm(n, mean = flips*p, sd = sqrt(flips*p*p))
+
+# show the histograms as a visual check
+hist(approx)
+hist(true)
+
+# the normal approximation takes a higher quantile
+qnorm(0.01, mean = flips*p, sd = sqrt(flips*p*p), lower.tail = FALSE) # 61.63174
+qbinom(0.01, size = flips, prob=p, lower.tail = FALSE) # 62
+
+pnorm(61.63174, mean = flips*p, sd = sqrt(flips*p*p), lower.tail = FALSE) # 0.01
+pbinom(q = 62, size = flips, prob=p, lower.tail = FALSE) # 0.006
+
+# Conclusion:
+# pretty much the same things regarding the actual type 1 error
+# however, the quantile for the exact is now less than that of the exact!
+# ie. acceptance regions: [0,61.63] vs [0,62] ... exact is wider (+ conservative) 
+```
