@@ -19,10 +19,9 @@ rangePlots:
 See if you can make simple triangle plot based on Roswell's failed and fixed piano simulation approach
 * One-tailed first
 
-What is specific about Roswell's approach that makes fuzzy pianos possible? 
-
-What is a discrete-outcome question that you would model with a glm instead of a direct test?
+Can you make pianos for a Wald test (probably not, but try)?
+Can you make triangles for a Wald test?
 
 ## Jonathan
 
-Find previous explorations and share
+Live large
