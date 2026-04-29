@@ -174,6 +174,7 @@ trianglePlots(triangle.data, type = type)
 
 ```{r}
 # Try to mess it up
+n<-10 # could be 100 instead, but this is just so the plots aren't boring
 
 # Simulate Binomials:
 # i) we make the draws from a binomial with a binomoial with p = 0.5
@@ -225,3 +226,93 @@ trianglePlots(triangle.data, type = type)
 # v) Once i figure that out, see the plots for the other tests
 ```
 
+```{r}
+
+triangleProps2 <- function(stats, type){
+  
+  all.sum <- c()
+
+  for (pr in unique(stats$prob)){
+
+    p.data <- stats %>% filter(prob == pr) %>% select(p)
+    partial.sum <- c(pr)
+    
+    if (type %in% c("less", "left", "l")){
+      for (range in seq(0,1,0.05)){
+        sum <- sum(p.data < range)
+        partial.sum <- cbind(partial.sum, sum)
+      }
+      
+    } else if (type %in% c("greater", "right", "g")){
+        for (range in seq(0,1,0.05)){
+          sum <- sum(p.data > range)
+          partial.sum <- cbind(partial.sum, sum)
+        }
+      
+    } else if (type %in% c("two", "t")){
+      
+      for (range in seq(0.05,0.5,0.05)){
+        sum <- sum(p.data < range)
+        partial.sum <- cbind(partial.sum, sum)
+      }
+      
+      for (range in seq(0.55,1,0.05)){
+          sum <- sum(p.data > (range-0.05))
+          partial.sum <- cbind(partial.sum, sum)
+        }
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  
+  ifelse(type %in% c("two","t"),
+         colnames(triangle.data) <- c("prob", as.character(seq(0.05,1,0.05))),
+         colnames(triangle.data) <- c("prob", as.character(seq(0,1,0.05)))
+         )
+  return(triangle.data)
+}
+
+
+trianglePlots2 <- function(triangle.data, type, facets){
+  count.data <- 
+    melt(triangle.data, 
+         id.vars = "prob", 
+         variable.name = "p", 
+         value.name = "count") %>%
+    mutate(p = as.double(as.character(p)),
+           count = count/3e4) # DO THIS PROPERLY
+  
+  intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
+  slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
+  just <- ifelse(type %in% c("less", "left", "l"), 1, 0)
+  
+  ggplot(data = count.data) + 
+    geom_col(aes(x=p, y=count), width = 0.04, just = 1) +
+    geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")+
+    geom_hline(yintercept = 0.50, color = "red", linetype = "dashed") +
+    geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +
+    geom_abline(intercept = 1, slope = -1, color = "black", linetype = "dashed") +
+    facet_grid(~prob)+
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = sprintf("Triangle Plots: binom.test (%s)",type))
+}
+```
+
+```{r fig.width=15, fig.height=5}
+type <- "t"
+triangle.data <- triangleProps2(bad.checks, type = type)
+trianglePlots2(triangle.data, type = type)
+
+triangle.data <- triangleProps2(cp_binom, type = type)
+trianglePlots2(triangle.data, type = type)
+
+```
+
+# TODO:
+# 1. MAKE THE FUNCTIONS NICER AND WORK FOR ALL PLOT TYPES
+# 2. FIX THE TOTAL COUNT IN THE PLOTTER - CAN'T DIVIDE BY MAX SINCE NOW ONLY "HALF" IS TAKEN
+#   ... PROBABLY JUST INSERT N OR SOMETHING
