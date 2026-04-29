@@ -1,0 +1,227 @@
+---
+title: "TrianglePlots"
+output: html_document
+date: "2026-04-27"
+---
+
+```{r checkPlotR, echo= FALSE}
+library(checkPlotR)
+library(dplyr)
+library(purrr)
+```
+
+```{r t-test simulations}
+#  generate data
+set.seed(7082)
+numSims <- 3e4
+n <- 100
+sd<-4
+
+## normal simulation:
+# For each mean, we generate 30000 simulations which draw 100 values from the specified distribution
+datNorm<-map_dfr(c(11,15,22,36), function(mymean){
+  map_dfr(1:numSims, function(x){
+    data.frame(mu=mymean, t(rnorm(n, mean=mymean, sd)))
+  })
+})
+
+
+# get p-values and CI from the t distribution:
+# for all 100 samples in the 120000 simulations, get the left-tailed p-values
+
+normtests<- map_dfr(1:length(datNorm$mu), function(samp){
+  p<-t.test(datNorm[samp, -1], mu=datNorm[samp,1], alternative="l")$p.value
+  ci<-t.test(datNorm[samp, -1], mu=datNorm[samp,1])
+  lower<-ci$conf.int[1]
+  upper<-ci$conf.int[2]
+  est<-ci$estimate
+  return(data.frame(p, lower, upper, est, tm=datNorm[samp,1]))
+})
+```
+
+```{r}
+checkPlot(normtests)+
+  theme_classic()
+```
+# ---------------
+
+```{r simulate binomial, warning = FALSE, message = FALSE}
+# binomial simulation
+to_checkplot <- map_dfr(c(0.5, 0.75, 0.85, 0.9, 0.97), function(prob){
+  dat <- rbinom(numSims, n, prob)
+  k<-map_dfr(c("binom.test", "chisq", "wald"), function(testv){
+    data.frame(multBinom(
+      dat = dat, prob = prob, n = n, testv = testv)
+      , testv
+      , prob)
+    
+  })
+  return(k)
+})
+
+to_checkplot <- to_checkplot %>% 
+  mutate(testv=factor(c("Clopper-Pearson exact", "chi squared", "Wald")[as.numeric(as.factor(testv))]
+                      , levels=c("Clopper-Pearson exact", "chi squared", "Wald")))
+
+```
+
+```{r jagged checkplots}
+to_checkplot_lower <- to_checkplot %>% mutate(p = cp)
+
+checkPlot(to_checkplot_lower
+          , facets = 15)+
+  facet_grid(testv~prob, scales="free_y")+
+  labs(x="nominal p-value", title = "conservative tie-breaking \n(less than)")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+
+```
+
+```{r smooth binomial checkplot}
+checkPlot(to_checkplot %>% 
+            filter(testv == "Clopper-Pearson exact")
+          , facets = 5)+
+  facet_grid(testv~prob, scales="free_y")+
+  labs(x="nominal p-value", main = "uniform tie-breaking")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+```
+
+# ====================
+
+# New Stuff:
+
+```{r}
+# Triangle Plot Functions
+library(reshape2)
+
+triangleProps <- function(stats, type){
+  
+  all.sum <- c()
+
+  for (pr in unique(stats$prob)){
+
+    p.data <- stats %>% filter(prob == pr) %>% select(p)
+    partial.sum <- c(pr)
+    
+    if (type %in% c("less", "left", "l")){
+      for (range in seq(0,1,0.05)){
+        sum <- sum(p.data < range)
+        partial.sum <- cbind(partial.sum, sum)
+      }
+    } else if (type %in% c("greater", "right", "g")){
+        for (range in seq(0,1,0.05)){
+          sum <- sum(p.data > range)
+          partial.sum <- cbind(partial.sum, sum)
+        }
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  colnames(triangle.data) <- c("prob", as.character(seq(0,1,0.05)))
+  return(triangle.data)
+}
+
+
+trianglePlots <- function(triangle.data, type, facets){
+  count.data <- 
+    melt(triangle.data, 
+         id.vars = "prob", 
+         variable.name = "p", 
+         value.name = "count") %>%
+    mutate(p = as.double(as.character(p)),
+           count = count/max(count))
+  
+  intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
+  slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
+  just <- ifelse(type %in% c("less", "left", "l"), 1, 0)
+  
+  ggplot(data = count.data) + 
+    geom_col(aes(x=p, y=count), width = 0.04, just = just) +
+    geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")+
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed") +
+    geom_abline(intercept = intercept, slope = slope, color = "black", linetype = "dashed") +
+    facet_grid(~prob)+
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = sprintf("Triangle Plots: binom.test (%s)",type))
+}
+```
+
+
+```{r fig.width=15, fig.height=5}
+# Evaluate Functions
+
+cp_binom <-
+  to_checkplot %>%
+  filter(test == "binom.test") 
+
+type <- "l"
+triangle.data <- triangleProps(cp_binom, type = type)
+trianglePlots(triangle.data, type = type)
+
+type <- "g"
+triangle.data <- triangleProps(cp_binom, type = type)
+trianglePlots(triangle.data, type = type)
+```
+
+```{r}
+# Try to mess it up
+
+# Simulate Binomials:
+# i) we make the draws from a binomial with a binomoial with p = 0.5
+#ii) but lets see how the triangles look for the other probabilities
+bad.checks <- 
+  map_dfr(c(0.5, 0.75, 0.85, 0.9, 0.97), function(prob){
+  dat <- rbinom(numSims, n, 0.5)
+  k<-map_dfr(c("binom.test"), function(testv){
+    data.frame(multBinom(
+      dat = dat, prob = prob, n = n, testv = testv)
+      , testv
+      , prob)
+    
+  })
+  return(k)
+})
+
+bad.checks <- bad.checks %>% 
+  mutate(testv=factor(c("Clopper-Pearson exact")[as.numeric(as.factor(testv))]
+                      , levels=c("Clopper-Pearson exact")))
+
+
+# Show Their Piano Plots:
+# i) They are obviously terrible
+checkPlot(bad.checks %>% 
+            filter(testv == "Clopper-Pearson exact")
+          , facets = 5)+
+  facet_grid(testv~prob, scales="free_y")+
+  labs(x="nominal p-value", main = "uniform tie-breaking")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+
+# Compare w/ Triangle Plots:
+type <- "l"
+triangle.data <- triangleProps(bad.checks, type = type)
+trianglePlots(triangle.data, type = type)
+
+type <- "g"
+triangle.data <- triangleProps(bad.checks, type = type)
+trianglePlots(triangle.data, type = type)
+
+# Overall:
+# i) Within a days work this is acceptable ... wish i didn't have to grade
+# ii) Understand the significance of this plot independent/jointly of the Piano
+# iii) Is this what we wanted to show (should've been the first point)
+# iv) Now for two-tailed ...
+# v) Once i figure that out, see the plots for the other tests
+```
+

@@ -1,0 +1,345 @@
+---
+title: "TestingFunctions"
+output: html_document
+date: "2026-04-20"
+---
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+successes = 5
+n = 10
+p = 0.3
+
+binom.test(x = successes, n = n, p = p, alternative = "two.sided")
+binom.test(x = successes, n = n, p = p, alternative = "less")
+binom.test(x = successes, n = n, p = p, alternative = "greater")
+
+```
+
+```{r}
+
+# I want to see how the fuzzy trick is working:
+# What range the p-values are being generated within
+
+# d: successes
+# n: number of trials
+# prob0: probabiltiy under the null
+prob0 = 0.3
+mydat <- rbinom(n = 1000, size = 10, prob = prob0)
+
+df <- purrr::map_dfr(mydat, function(d){
+			bt <- stats::binom.test(d, n, p = prob0, alternative = "less")
+			gt <- stats::binom.test(d, n, p = prob0, alternative = "greater")
+			cp <- bt$p.value
+			ccp <- gt$p.value
+			rand <- runif(1) 
+			rp <- cp + rand * (1 - ccp - cp)
+			ci <- stats::binom.test(d, n, p = prob0, alternative = "two.sided")
+			return(data.frame(est = d/n
+			                  , lower.p = cp
+			                  , upper.p = ccp
+			                  , total.p = cp + ccp
+			                  , rand = rand
+			                  , p = rp
+			                  , upper = ci$conf.int[2]
+			                  , lower = ci$conf.int[1]
+			                  , test = "binom.test"))
+  }
+)
+		
+```
+
+```{r}
+pbinom(3,10,0.3)
+
+dbinom(3,10,0.3) + dbinom(2,10,0.3) + dbinom(1,10,0.3) + dbinom(0,10,0.3)
+```
+
+```{r}
+binom.test(3,10,0.3,alternative = "two.sided")
+binom.test(3,10,0.6524,alternative = "two.sided") # putting in the upper bound has p < 0.05
+
+
+binom.test(3,10,0.3,alternative = "two.sided")
+binom.test(3,10,0.3,alternative = "two.sided")
+
+binom.test(3,10, 0.3, alternative = "less")
+binom.test(3,10, 0.65, alternative = "less")
+pbinom(3,10,prob=0.65,lower.tail = TRUE)
+
+binom.test(3,10,0.3, alternative = "greater")
+binom.test(3,10,0.08, alternative = "greater")
+
+pbinom(3,10,0.6055, lower.tail = FALSE)
+```
+
+```{r}
+# distribution of null p-values in binomial glm
+
+library(rethinking)
+
+# t test
+# pval has uniform distribution under null
+
+f <- function(N=10) {
+    y1 <- rnorm(N)
+    y2 <- rnorm(N)
+    z <- t.test(y1,y2)
+    return( z$p.value )
+}
+
+S <- 1e5
+pvals1 <- mcreplicate(S,f(N=100), mc.cores = 1)
+hist(pvals1,main="null p-values for t.test",breaks=50,border="white",col=4,xlab="p value")
+sum(pvals1 < 0.05 ) / S
+
+# binomial
+# pval DOES NOT in general have uniform distribution under null
+
+f2 <- function(N=10,M=5,p=0.25,b=0) {
+    x <- c( rep(0,N/2) , rep(1,N/2) )
+    p <- inv_logit(logit(p)+b*x)
+    y <- rbinom(N,size=M,prob=p)
+    z <- glm( cbind(y,M-y) ~ x , family=binomial )
+    pval <- summary(z)$coefficients[,4][2]
+    return( as.numeric(pval) )
+}
+
+S <- 1e5
+pvals <- mcreplicate(S,f2(N=100,M=1,p=0.85,b=0),mc.cores=1)
+hist(pvals,main="null p-values for binomial",breaks=50,border="white",col=4,xlab="p value")
+sum(pvals < 0.05 ) / S
+```
+
+```{r}
+set.seed(1)
+
+n <- 10
+p0 <- 0.4
+N <- 3e4
+
+pvals.t <- numeric(N)
+pvals.g <- numeric(N)
+pvals.l <- numeric(N)
+
+x <- rbinom(N, n, p0)
+
+for (i in 1:N) {
+
+  xi <- x[i]
+
+  # exact two-sided binomial test p-value
+  pvals.t[i] <- binom.test(xi, n, p = p0, alternative = "t")$p.value
+  pvals.g[i] <- binom.test(xi, n, p = p0, alternative = "g")$p.value
+  pvals.l[i] <- binom.test(xi, n, p = p0, alternative = "l")$p.value
+}
+
+hist(x, breaks = 50, freq = FALSE)
+
+hist(pvals.t,
+     breaks = 50, freq = FALSE,
+     main = "Exact binomial p-values under null",
+     xlab = "p-value",
+     col = "grey")
+
+hist(pvals.g,
+     breaks = 50, freq = FALSE,
+     main = "Exact binomial p-values under null",
+     xlab = "p-value",
+     col = "grey")
+
+hist(pvals.l,
+     breaks = 50, freq = FALSE,
+     main = "Exact binomial p-values under null",
+     xlab = "p-value",
+     col = "grey")
+
+```
+
+```{r}
+binomialD.function <- function(n, prob0){
+  
+  "
+  Description:
+    - Use the exact binomial test to calculate tail probabilties and point-mass
+    
+  Input:
+    - n: size of binomial trial
+    - prob0: probability of success
+    
+  Returns:
+    - Dataframe with the described information
+  "
+  
+  df <- data.frame()
+
+  for (successes in 0:n){
+    row <- c(success = successes, 
+             mass = dbinom(successes, n, prob0), 
+             left.tail = binom.test(x = successes, n = n, p = prob0, alternative = "l")$p.value,
+             right.tail = binom.test(x = successes, n = n, p = prob0, alternative = "g")$p.value,
+             two.tail = binom.test(x = successes, n = n, p = prob0, alternative = "t")$p.value)
+    
+    df<-rbind(df, row)
+  }
+  
+  colnames(df) <- c("success", "mass","left.tail","right.tail","two.tail")
+  
+  return(df)
+} 
+
+binomialP.function <- function(binomialD){
+  
+  ggplot(bd, aes(x = success, y = mass)) +
+    geom_col() +
+    ggtitle(sprintf("Theoretical Mass ~ Binomial({n}, {p})"))
+
+}
+
+barplot()
+
+
+
+bd <- binomialD.function(10,0.2)
+
+library(xtable)
+xtable(print(bd))
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+set.seed(1)
+
+# parameters
+n <- 10
+p0 <- 0.4
+N <- 3e5  # simulations
+
+pvals <- numeric(N)
+
+for (i in 1:N) {
+
+  # simulate binomial data
+  x <- rbinom(1, size = n, prob = p0)
+
+  # fit intercept-only GLM (this is equivalent to testing p = p0)
+  fit <- glm(cbind(x, n - x) ~ 1, family = binomial)
+
+  # extract p-value for intercept test against p0
+  z <- (coef(fit) - qlogis(p0)) / sqrt(vcov(fit))
+
+  pvals[i] <- 2 * (1 - pnorm(abs(z)))
+}
+
+# histogram
+hist(pvals,
+     breaks = 30,
+     main = "Distribution of p-values under Binomial GLM (null)",
+     xlab = "p-value",
+     col = "grey")
+
+# Under the null, we simulate \(X \sim \mathrm{Binomial}(n, p_0)\), which tends to 
+# cluster around \(n p_0\), and then for each realization we convert it into a p-value.
+# The distribution of those p-values comes from how the discrete binomial mass is pushed 
+# through the tail-based testing rule.
+
+```
+```{r}
+# Match my notebook example
+sims = 3e5
+size = 10
+
+binsim <- rbinom(sims, size = size, p = 0.5)
+hist(binsim)
+
+p.mass <- choose(10,binsim)/(2^size)
+binsim.p.left <- pbinom(binsim, size = size, p = 0.5, lower.tail = TRUE)
+binsim.p.right <- pbinom(binsim - 1, size = size, p = 0.5, lower.tail = FALSE) # this is doing P(X > x) not P(X>=x) ... so -1
+
+sim.df <- data.frame(binsim, p.mass, binsim.p.left, binsim.p.right)
+
+# Convert to randomized p-values
+
+sim.df <- 
+  sim.df %>%
+  arrange(binsim) %>%
+  mutate(two.tailed = ifelse(binsim == max(binsim)/2, 1, 
+                             ifelse(binsim < max(binsim)/2, 2*binsim.p.left,
+                                    2*binsim.p.right)
+                             )
+         )
+  
+sim.df %>%
+  distinct(binsim, .keep_all = TRUE)
+
+hist(sim.df$p.mass)
+hist(sim.df$two.tailed)
+
+# Starting with one-tail
+hist(sim.df$binsim.p.left)
+hist(sim.df$binsim.p.right)
+```
+
+
+
+```{r}
+# But if you have a large enough size ... you approximate a normal - so are we considering small size case?
+sims = 3e6
+size = 100000
+
+binsim <- rbinom(sims, size = size, p = 0.5)
+hist(binsim)
+
+binsim.p.left <- pbinom(binsim, size = size, p = 0.5, lower.tail = TRUE)
+binsim.p.right <- pbinom(binsim, size = size, p = 0.5, lower.tail = FALSE)
+
+
+hist(binsim.p.left)
+hist(binsim.p.right)
+
+data.frame(binsim, binsim.p.left, binsim.p.right)
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+v <- rbinom(10000, 10, 0.3)
+hist(v)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
