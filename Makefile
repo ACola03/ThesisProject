@@ -11,8 +11,20 @@ vim_session:
 
 Sources += README.md TODO.md
 
-
 ######################################################################
+
+Ignore += *.html
+Sources += *.R
+
+autoknit = defined
+autopipeR = defined
+TrianglePlots.html: TrianglePlots.Rmd
+
+## Conservative.Rmd
+## ProbabilityIntegralTransform.Rmd
+TestingFunctions.html: TestingFunctions.Rmd
+
+poisson.Rout: poisson.R
 
 ### Makestuff
 
@@ -32,7 +44,7 @@ makestuff:
 
 -include makestuff/os.mk
 
-## -include makestuff/pipeR.mk
+-include makestuff/pipeR.mk
 
 -include makestuff/git.mk
 -include makestuff/visual.mk
