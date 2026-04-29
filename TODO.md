@@ -16,11 +16,13 @@ rangePlots:
 
 ## Adam
 
+Do we need triangle plots? What can you do with glm-based testing of a Poisson deviate as an example?
+
+How broad are the applications for which it is not easy to break ties?
+
 See if you can make simple triangle plot based on Roswell's failed and fixed piano simulation approach
 * One-tailed first
 
-Can you make pianos for a Wald test (probably not, but try)?
-Can you make triangles for a Wald test?
 
 ## Jonathan
 
