@@ -5,7 +5,7 @@ current: target
 Ignore = target.mk
 
 vim_session:
-	bash -cl "vmt README.md"
+	bash -cl "vmt README.md TODO.md"
 
 ######################################################################
 
@@ -23,6 +23,8 @@ TrianglePlots.html: TrianglePlots.Rmd
 ## Conservative.Rmd
 ## ProbabilityIntegralTransform.Rmd
 TestingFunctions.html: TestingFunctions.Rmd
+
+PoissonTests.html: PoissonTests.Rmd
 
 poisson.Rout: poisson.R
 
