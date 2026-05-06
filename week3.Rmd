@@ -398,7 +398,7 @@ trianglePlotsPoisson(triangle.data.right, type = type)
 
 discreteCheck.poisson(triangle.data.left, triangle.data.right)
 
-cp_poisson.exact
+summary(cp_poisson.exact)
 
 # ==========
 
