@@ -11,6 +11,7 @@ vim_session:
 
 Sources += README.md TODO.md
 Sources += $(wildcard *md)
+Ignore += *_files
 
 ######################################################################
 
