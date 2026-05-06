@@ -26,6 +26,8 @@ TestingFunctions.html: TestingFunctions.Rmd
 
 PoissonTests.html: PoissonTests.Rmd
 
+week3.html: week3.Rmd
+
 poisson.Rout: poisson.R
 
 ### Makestuff

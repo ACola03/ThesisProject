@@ -16,13 +16,16 @@ rangePlots:
 
 ## Adam
 
-Do we need triangle plots? What can you do with glm-based testing of a Poisson deviate as an example?
+Make a perfect one-tailed triangle for y~1 exact
 
-How broad are the applications for which it is not easy to break ties?
+Make a perfect two-tailed triangle for y~1 exact
 
-See if you can make simple triangle plot based on Roswell's failed and fixed piano simulation approach
-* One-tailed first
+How else can we get one-tailed P values for y~1?
+* Wald
+* Something better but not exact?
+	* likelihood profile
 
+Once this is done, move on to glm(y~x, family=Poisson)
 
 ## Jonathan
 
