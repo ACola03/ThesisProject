@@ -1,0 +1,707 @@
+---
+title: "PoissonTests"
+output: html_document
+date: "2026-04-29"
+---
+
+## **Poisson GLM Checkplots**
+
+This notebook will investigate how the Poisson family behaves in a GLM by looking into the p-values of a simple intercept model. Such models are evaluated across increasing values of $\lambda$ to highlight the Wald approximation that I believe $\texttt{glm.summary}$ is using. According to online sources, the normal approximation applies when $\lambda > 10$. The below analysis adheres to the following procedure:
+
+1.  Simulate Poisson family GLM:
+
+    i.  Multiple GLM simulations are done to verify the Wald approximation that is being used
+
+    ii. Since the p-values returned by the model summary are two-tailed, we manually calculate the left-tailed p-values according to [this](https://math.stackexchange.com/questions/1513812/the-wald-test-with-poisson-distribution){.uri}.
+
+    iii. Simulations are done across increasing $\lambda$ without modifying the sample size (N).
+
+2.  Discreteness Respected:
+
+    i.  We then use the triangle plots, and an additional diagnostic plot (which isn't much more work), to validate whether the associated left and right tails approximately sum to 1. If they do, then discreteness is not being respected.
+
+    ii. If discreteness isn't being respected, then some approximation, likely the Wald, which I am sure I validated, is being used. There are rules of thumb when to use such approximations, and from the work done below, we see potential issues resulting from their use.
+
+3.  Checking Pianos:
+
+    i.  After checking whether the p-values are adhering to discreteness, we of course check the piano plots.
+
+    ii. I think the piano plots are a little concerning ...
+
+------------------------------------------------------------------------
+
+### Libraries & Functions:
+
+```{r}
+# Libraries
+library(purrr)
+library(checkPlotR)
+library(dplyr)
+library(reshape2)
+```
+
+#### Triangle Plots:
+
+These are pretty much identical to those in $\texttt{TrianglePlots.Rmd}$ but with the following modifications:
+
+1.  They were originally designed for Binomial data which relies on success probability (p). With the Poisson, the $p$ was essentially just swapped with $\lambda$.
+2.  Also, I realized in my earlier implementation I had used $> \text{and} <$ instead of $\ge \text{and} \le$ which isn't a big deal since the p-values were treated as continuous but if they aren't then the latter should most definitely be used. **Something to quickly fix later.**
+
+```{r}
+# Functions: Triangle Plot Related
+step <- 0.05
+
+trianglePoisson <- function(stats, type){
+  
+  all.sum <- c()
+
+  for (lam in unique(stats$lambda)){
+
+    p.data <- stats %>% filter(lambda == lam) %>% select(p)
+    partial.sum <- c(lam)
+    
+    if (type %in% c("less", "left", "l")){
+      for (range in seq(0,1,step)){
+        sum <- sum(p.data <= range) # THIS SHOULD BE <=
+        partial.sum <- cbind(partial.sum, sum)
+      }
+    } else if (type %in% c("greater", "right", "g")){
+        for (range in seq(0,1,step)){
+          sum <- sum(p.data >= range) # THIS SHOULD BE >=
+          partial.sum <- cbind(partial.sum, sum)
+        }
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  colnames(triangle.data) <- c("lambda", as.character(seq(0,1,step)))
+  return(triangle.data)
+}
+
+trianglePlotsPoisson <- function(triangle.data, type, facets){
+  count.data <- 
+    melt(triangle.data, 
+         id.vars = "lambda", # MAIN CHANGE
+         variable.name = "p", 
+         value.name = "count") %>%
+    mutate(p = as.double(as.character(p)),
+           count = count/max(count))
+  
+  intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
+  slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
+  just <- ifelse(type %in% c("less", "left", "l"), 1, 0)
+  
+  ggplot(data = count.data) + 
+    geom_col(aes(x=p, y=count), width = 0.04, just = just) +
+    geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")+
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed") +
+    geom_abline(intercept = intercept, slope = slope, color = "black", linetype = "dashed") +
+    facet_grid(~lambda)+ # MAIN CHANGE
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = sprintf("Triangle Plots: poisson (%s)",type))
+}
+```
+
+#### Discrete Behaviour Validation:
+
+The first step before constructing piano and triangle plots is the check whether the p-values are behaving discretely. If so, we would have the associated left and right tails having a sum greater than 1. There are three functions below that help validate this, whose names I have no attachment to:
+
+1.  $\texttt{discreteCheck.poissonData}$:
+    i.  For each p-value bin of width 0.05, I add the associated left and right tails. This is repeated for all specified $\lambda$ to return a dataframe where the columns are the p-value bins (0, 0.05, 0.10, etc.) and rows representing each of the (5) chosen $\lambda$.
+    ii. The function requires a dataframe with columns for lambda and p.
+2.  $\texttt{discreteCheck.poissonPlot}$:
+    i.  This just plots the data from the above function, used as input, in a faceted grid on lambda.
+    ii. The plot itself shows a horizontal red line at y=1 to indicate the behaviour if the p-values are treated as continuous rather than discrete. If the resulting plot appears square and adheres to the red line, then discreteness isn't being respected.
+3.  $\texttt{discreteCheck.poisson}$:
+    1.  This just combines the other two functions into a single function call.
+    2.  It takes the left-tail and right-tail data as input which is calculated from $\texttt{trianglePoisson}$ after specifying the $\texttt{type}$ argument.
+
+```{r}
+# Functions: Discrete Behaviour Validation Related
+discreteCheck.poissonData <- 
+  function(leftTail, rightTail){
+  N <- leftTail$`1`[1]
+  all.prop <- c()
+  
+  for (lam in unique(leftTail$lambda)){
+  
+    left.data <- leftTail %>% filter(lambda == lam)
+    right.data <- rightTail %>% filter(lambda == lam) 
+    partial.prop <- c(lam)
+    
+    for (range in as.character(seq(0,1,step))){
+          prop <- (left.data[[range]] + right.data[[range]])/N
+          partial.prop <- cbind(partial.prop, prop)
+        }
+  
+    all.prop <- rbind(all.prop, partial.prop)
+    
+  }
+  discrete.data <- data.frame(all.prop)
+  colnames(discrete.data) <- c("lambda", as.character(seq(0,1,step)))
+  return(discrete.data)
+}
+
+discreteCheck.poissonPlot <- 
+  function(discrete.data){
+  
+    plot.data <- melt(discrete.data, 
+                      id.vars = "lambda", 
+                      variable.name = "p", 
+                      value.name = "proportion") %>%
+    mutate(p = as.double(as.character(p)))
+    
+    ggplot(data = plot.data) + 
+    geom_col(aes(x=p, y=proportion), width = 0.04, just = 1) +
+    geom_hline(yintercept = 1, color = "red", linetype = "dashed")+
+    facet_grid(~lambda)+
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = "Discrete Behaviour Check: poisson")
+    
+}
+
+discreteCheck.poisson <- 
+  function(leftTail, rightTail){
+    data <- discreteCheck.poissonData(leftTail, rightTail)
+    discreteCheck.poissonPlot(data)
+  }
+```
+
+------------------------------------------------------------------------
+
+### Under-The-Hood Calculations:
+
+Before I calculate any left-tailed p-values I first want to make sure of how $\texttt{glm.summary}$ is calculating the p-values, so I can follow a similar process. Of course, when looking into $\texttt{summary(model)}$, you'll notice that it gives you two-tailed p-values (which I didn't at first). Since our piano and triangle plots do not use these p-values I'll have to slightly modify the calculation, but it isn't hard. This analysis really just consists of the following:
+
+1.  Use the two-tailed p-values that $\texttt{summary(model)}$ gives you and go through the whole process outlined above.
+2.  Repeat this process but manually calculate the two-tailed p-values just to verify if it is really using the Wald approximation.
+3.  I am pretty sure it is using the Wald.
+
+```{r fig.width=15, fig.height=5}
+# Directly using the glm.summary p-values
+
+# ==========
+
+set.seed(9091459)
+reps <- 3e4
+N <- 50
+lams <- c(1,2,5,10,20)
+
+all.pvals <- c()
+all.lams <- c()
+
+for (lam in lams){
+  pvals <- replicate(reps, {
+    d <- rpois(N, lam)
+    g <- glm(d ~ 1 + offset(log(0*d+lam)), family = poisson())
+    summary(g)$coefficients[1,4]
+  })
+  
+  all.pvals <- c(all.pvals, pvals)
+  all.lams <- c(all.lams, rep(lam, reps))
+}
+
+cp_poisson.default <- data.frame(p = all.pvals,
+                         lambda = all.lams)
+
+# ==========
+
+type <- "l"
+triangle.data.left <- trianglePoisson(cp_poisson.default, type = type)
+trianglePlotsPoisson(triangle.data.left, type = type)
+
+type <- "g"
+triangle.data.right <- trianglePoisson(cp_poisson.default, type = type)
+trianglePlotsPoisson(triangle.data.right, type = type)
+
+discreteCheck.poisson(triangle.data.left, triangle.data.right)
+
+# ==========
+
+checkPlot(cp_poisson.default 
+          , facets = 5)+
+  facet_grid(~lambda, scales="free_y")+
+  labs(x="nominal p-value")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+
+```
+
+```{r fig.width=15, fig.height=5}
+# Checking whether its using the Wald 
+
+# ==========
+
+set.seed(9091459)
+reps <- 3e4
+N <- 50
+lams <- c(1,2,5,10,20)
+
+all.pvals <- c()
+all.lams <- c()
+
+for (lam in lams){
+  pvals <- replicate(reps, {
+    d <- rpois(N, lam)
+    g <- glm(d ~ 1 + offset(log(0*d+lam)), family = poisson())
+    gs <- summary(g)
+    w <- (gs$coefficients[1,1] - 0) / gs$coefficients[1,2]
+    2*pnorm(-abs(w))
+    
+  })
+  
+  all.pvals <- c(all.pvals, pvals)
+  all.lams <- c(all.lams, rep(lam, reps))
+}
+
+cp_poisson.check <- data.frame(p = all.pvals,
+                         lambda = all.lams)
+
+# ==========
+
+type <- "l"
+triangle.data.left <- trianglePoisson(cp_poisson.check, type = type)
+trianglePlotsPoisson(triangle.data.left, type = type)
+
+type <- "g"
+triangle.data.right <- trianglePoisson(cp_poisson.check, type = type)
+trianglePlotsPoisson(triangle.data.right, type = type)
+
+discreteCheck.poisson(triangle.data.left, triangle.data.right)
+
+# ==========
+
+checkPlot(cp_poisson.check 
+          , facets = 5)+
+  facet_grid(~lambda, scales="free_y")+
+  labs(x="nominal p-value")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+```
+
+------------------------------------------------------------------------
+
+### Proper Poisson Pianos:
+
+Knowing that the Wald is being used, I use the referenced link above to calculate left-tail p-values and go through the whole process again.
+
+```{r fig.width=15, fig.height=5}
+# Proper Calculations
+
+# ==========
+
+set.seed(9091459)
+reps <- 3e4
+N <- 50
+lams <- c(1,2,5,10,20)
+
+all.pvals <- c()
+all.lams <- c()
+
+for (lam in lams){
+  pvals <- replicate(reps, {
+    d <- rpois(N, lam)
+    g <- glm(d ~ 1 + offset(log(0*d+lam)), family = poisson())
+    gs <- summary(g)
+    w <- (gs$coefficients[1,1] - 0) / gs$coefficients[1,2]
+    pnorm(w)
+    
+  })
+  
+  all.pvals <- c(all.pvals, pvals)
+  all.lams <- c(all.lams, rep(lam, reps))
+}
+
+cp_poisson <- data.frame(p = all.pvals,
+                         lambda = all.lams)
+
+# ==========
+
+type <- "l"
+triangle.data.left <- trianglePoisson(cp_poisson, type = type)
+trianglePlotsPoisson(triangle.data.left, type = type)
+
+type <- "g"
+triangle.data.right <- trianglePoisson(cp_poisson, type = type)
+trianglePlotsPoisson(triangle.data.right, type = type)
+
+discreteCheck.poisson2(triangle.data.left, triangle.data.right,cp_poisson)
+
+# ==========
+
+checkPlot(cp_poisson 
+          , facets = 5)+
+  facet_grid(~lambda, scales="free_y")+
+  labs(x="nominal p-value")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+```
+
+------------------------------------------------------------------------
+
+### Exact Poisson Tests:
+
+The purpose of this is to show how the discrete behaviour validation plots will appear if discreteness is being respected. Additionally, the p-values will be fuzzed to compare to the approximate tests.
+
+```{r}
+poisson.test(1,1,5,"less")
+ppois(1,5,lower.tail = TRUE)
+
+poisson.test(1,1,5,"greater")
+ppois(1,5,lower.tail = FALSE) + dpois(1,5)
+```
+
+```{r}
+# ==========
+
+set.seed(9091459)
+reps <- 3e4
+N <- 1
+lams <- c(1,2,5,10,20)
+
+all.pvals <- c()
+all.lams <- c()
+
+for (lam in lams){
+  pvals <- replicate(reps, {
+    d <- rpois(N, lam)
+    ppois(sum(d),N*lam,lower.tail = TRUE)
+    
+  })
+  
+  all.pvals <- c(all.pvals, pvals)
+  all.lams <- c(all.lams, rep(lam, reps))
+}
+
+cp_poisson.exact <- data.frame(p = all.pvals,
+                         lambda = all.lams)
+
+# ==========
+
+type <- "l"
+triangle.data.left <- trianglePoisson(cp_poisson.exact, type = type)
+trianglePlotsPoisson(triangle.data.left, type = type)
+
+type <- "g"
+triangle.data.right <- trianglePoisson(cp_poisson.exact, type = type)
+trianglePlotsPoisson(triangle.data.right, type = type)
+
+discreteCheck.poisson2(triangle.data.left, triangle.data.right, cp_poisson.exact)
+
+discreteCheck.poisson(triangle.data.left, triangle.data.right)
+
+# ==========
+
+checkPlot(cp_poisson.exact 
+          , facets = 5)+
+  facet_grid(~lambda, scales="free_y")+
+  labs(x="nominal p-value")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+```
+
+------------------------------------------------------------------------
+
+```{r}
+discreteCheck.poissonData2 <- function(leftTail, rightTail, stats){
+  
+  all.prop <- c()
+  
+  for (lam in unique(stats$lambda)){
+    
+    # get actual p-values for this lambda
+    p.data <- stats %>% filter(lambda == lam) %>% pull(p)
+    thresholds <- sort(unique(p.data))
+    
+    # recompute left/right at THESE thresholds
+    left <- sapply(thresholds, function(t) sum(p.data <= t))
+    right <- sapply(thresholds, function(t) sum(p.data >= t))
+    
+    N <- length(p.data)
+    prop <- (left + right) / N
+    
+    partial <- cbind(lambda = lam, p = thresholds, proportion = prop)
+    all.prop <- rbind(all.prop, partial)
+  }
+  
+  return(as.data.frame(all.prop))
+}
+
+discreteCheck.poissonPlot2 <- function(data){
+  ggplot(data, aes(x = p, y = proportion)) +
+    geom_point(size = 1.5) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
+    facet_grid(~lambda) +
+    labs(title = "Discrete Behaviour Check (aligned thresholds)",
+         x = "p-value", y = "P(p ≤ t) + P(p ≥ t)") +
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+    
+}
+
+discreteCheck.poisson2 <- 
+  function(leftTail, rightTail, stats){
+    data <- discreteCheck.poissonData2(leftTail, rightTail, stats)
+    discreteCheck.poissonPlot2(data)
+  }
+```
+
+```{r}
+v <- trianglePoisson2(cp_poisson.exact, "l")
+trianglePlotsPoisson(v, "l")
+
+```
+
+```{r}
+trianglePlotsPoisson(v, "l")
+```
+
+```{r}
+stats <- cp_poisson.exact
+type <- "l"
+
+all.sum <- c()
+thresholds <- sort(unique(stats$p))
+
+  for (lam in unique(stats$lambda)){
+
+    p.data <- stats %>% filter(lambda == lam) %>% pull(p)
+    partial.sum <- c(lam)
+    
+    if (type %in% c("less", "left", "l")){
+      sum <- t(sapply(thresholds, function(t) sum(p.data <= t)))
+      partial.sum <- cbind(partial.sum, sum)
+
+    } else if (type %in% c("greater", "right", "g")){
+      sum <- t(sapply(thresholds, function(t) sum(p.data >= t)))
+      partial.sum <- cbind(partial.sum, sum)
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  colnames(triangle.data) <- c("lambda", as.character(thresholds))
+
+triangle.data
+```
+
+```{r}
+# Functions: Triangle Plot Related
+step <- 0.05
+
+trianglePoisson2 <- function(stats, type){
+  
+  all.sum <- c()
+  thresholds <- sort(unique(stats$p))
+
+  for (lam in unique(stats$lambda)){
+
+    p.data <- stats %>% filter(lambda == lam) %>% pull(p)
+    partial.sum <- c(lam)
+    
+    if (type %in% c("less", "left", "l")){
+      sum <- t(sapply(thresholds, function(t) sum(p.data <= t)))
+      partial.sum <- cbind(partial.sum, sum)
+
+    } else if (type %in% c("greater", "right", "g")){
+      sum <- t(sapply(thresholds, function(t) sum(p.data >= t)))
+      partial.sum <- cbind(partial.sum, sum)
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  colnames(triangle.data) <- c("lambda", as.character(thresholds))
+  
+  return(triangle.data)
+}
+
+trianglePlotsPoisson <- function(triangle.data, type, facets){
+  count.data <- 
+    melt(triangle.data, 
+         id.vars = "lambda", # MAIN CHANGE
+         variable.name = "p", 
+         value.name = "count") %>%
+    mutate(p = as.double(as.character(p)),
+           count = count/max(count))
+  
+  intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
+  slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
+  just <- ifelse(type %in% c("less", "left", "l"), 1, 0)
+  
+  ggplot(data = count.data) + 
+    geom_step(aes(x=p, y=count), direction = "hv") +
+    geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")+
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed") +
+    geom_abline(intercept = intercept, slope = slope, color = "black", linetype = "dashed") +
+    facet_grid(~lambda)+ # MAIN CHANGE
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = sprintf("Triangle Plots: poisson (%s)",type))
+}
+```
+
+------------------------------------------------------------------------
+
+#### Notes:
+
+1.  If I use N=1 on the triangle plots, it might not be 'correct' ... probably because of the just ... actually it might be correct
+2.  The discrete check plots aren't working for exact tests ...
+
+------------------------------------------------------------------------
+
+#### Current Junk
+
+```{r fig.width=15, fig.height=5}
+trianglePoisson <- function(stats, type){
+  
+  all.sum <- c()
+
+  for (lam in unique(stats$lambda)){
+
+    p.data <- stats %>% filter(lambda == lam) %>% select(p)
+    partial.sum <- c(lam)
+    
+    if (type %in% c("less", "left", "l")){
+      for (range in seq(0,1,0.05)){
+        sum <- sum(p.data <= range) # THIS SHOULD BE <=
+        partial.sum <- cbind(partial.sum, sum)
+      }
+    } else if (type %in% c("greater", "right", "g")){
+        for (range in seq(0,1,0.05)){
+          sum <- sum(p.data >= range) # THIS SHOULD BE >=
+          partial.sum <- cbind(partial.sum, sum)
+        }
+    }
+    
+    all.sum <- rbind(all.sum, partial.sum)
+  }
+  
+  triangle.data <- data.frame(all.sum)
+  colnames(triangle.data) <- c("lambda", as.character(seq(0,1,0.05)))
+  return(triangle.data)
+}
+
+trianglePlotsPoisson <- function(triangle.data, type, facets){
+  count.data <- 
+    melt(triangle.data, 
+         id.vars = "lambda", # MAIN CHANGE
+         variable.name = "p", 
+         value.name = "count") %>%
+    mutate(p = as.double(as.character(p)),
+           count = count/max(count))
+  
+  intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
+  slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
+  just <- ifelse(type %in% c("less", "left", "l"), 1, 0)
+  
+  ggplot(data = count.data) + 
+    geom_col(aes(x=p, y=count), width = 0.04, just = just) +
+    geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")+
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed") +
+    geom_abline(intercept = intercept, slope = slope, color = "black", linetype = "dashed") +
+    facet_grid(~lambda)+ # MAIN CHANGE
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = sprintf("Triangle Plots: poisson (%s)",type))
+}
+
+type <- "l"
+triangle.data.left <- trianglePoisson(cp_poisson, type = type)
+trianglePlotsPoisson(triangle.data.left, type = type)
+
+type <- "g"
+triangle.data.right <- trianglePoisson(cp_poisson, type = type)
+trianglePlotsPoisson(triangle.data.right, type = type)
+```
+
+```{r fig.width=15, fig.height=5}
+
+discreteCheck.poissonData <- 
+  function(leftTail, rightTail){
+  N <- leftTail$`1`[1]
+  all.prop <- c()
+  
+  for (lam in unique(leftTail$lambda)){
+  
+    left.data <- leftTail %>% filter(lambda == lam)
+    right.data <- rightTail %>% filter(lambda == lam) 
+    partial.prop <- c(lam)
+    
+    for (range in as.character(seq(0,1,0.05))){
+          prop <- (left.data[[range]] + right.data[[range]])/N
+          partial.prop <- cbind(partial.prop, prop)
+        }
+  
+    all.prop <- rbind(all.prop, partial.prop)
+    
+  }
+  discrete.data <- data.frame(all.prop)
+  colnames(discrete.data) <- c("lambda", as.character(seq(0,1,0.05)))
+  return(discrete.data)
+}
+
+discreteCheck.poissonPlot <- 
+  function(discrete.data){
+  
+    plot.data <- melt(discrete.data, 
+                      id.vars = "lambda", 
+                      variable.name = "p", 
+                      value.name = "proportion") %>%
+    mutate(p = as.double(as.character(p)))
+    
+    ggplot(data = plot.data) + 
+    geom_col(aes(x=p, y=proportion), width = 0.04, just = 1) +
+    geom_hline(yintercept = 1, color = "red", linetype = "dashed")+
+    facet_grid(~lambda)+
+    theme(panel.spacing.x = unit(2, "lines"),
+          plot.title = element_text(size = 15))+
+    labs(x="nominal p-value", 
+         title = "Discrete Behaviour Check: poisson")
+    
+}
+
+discreteCheck.poisson <- 
+  function(leftTail, rightTail){
+    data <- discreteCheck.poissonData(leftTail, rightTail)
+    discreteCheck.poissonPlot(data)
+  }
+
+# they are behaving continuously
+discreteCheck.poisson(triangle.data.left, triangle.data.right)
+
+# look the the piano plots
+checkPlot(cp_poisson 
+          , facets = 5)+
+  facet_grid(~lambda, scales="free_y")+
+  labs(x="nominal p-value", main = "uniform tie-breaking")+
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,100))+
+  theme_classic() + 
+  theme(panel.spacing.x = unit(2, "lines"))
+
+```
+
+# show the discreteness with something treated as such
+
+# clean-up the function
+
+# repeat for binomial
