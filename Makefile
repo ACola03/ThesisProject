@@ -5,11 +5,13 @@ current: target
 Ignore = target.mk
 
 vim_session:
-	bash -cl "vmt README.md"
+	bash -cl "vmt README.md TODO.md"
 
 ######################################################################
 
 Sources += README.md TODO.md
+Sources += $(wildcard *md)
+Ignore += *_files
 
 ######################################################################
 
@@ -23,6 +25,10 @@ TrianglePlots.html: TrianglePlots.Rmd
 ## Conservative.Rmd
 ## ProbabilityIntegralTransform.Rmd
 TestingFunctions.html: TestingFunctions.Rmd
+
+PoissonTests.html: PoissonTests.Rmd
+
+week3.html: week3.Rmd
 
 poisson.Rout: poisson.R
 
