@@ -863,6 +863,7 @@ cp_poisson.exact <- data.frame(p = all.pvals,
 
 # ==========
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 type <- "l"
 triangle.data.left <- trianglePoisson(cp_poisson.exact, type = type)
@@ -882,6 +883,9 @@ cp_poisson.exact
 =======
 # Piano:
 >>>>>>> b51e390b4eda9dc982b489b87d18ab7b771ac787
+=======
+# Piano:
+>>>>>>> b51e390b4eda9dc982b489b87d18ab7b771ac787
 
 checkPlot(cp_poisson.exact 
           , facets = 5)+
@@ -891,6 +895,7 @@ checkPlot(cp_poisson.exact
   scale_y_continuous(expand=c(0,100))+
   theme_classic() + 
   theme(panel.spacing.x = unit(2, "lines"))
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 ```{r}
@@ -1013,6 +1018,11 @@ hist(v4, breaks = 10)
 
 ------------------------------------------------------------------------
 =======
+# ==========
+# Triangle:
+>>>>>>> b51e390b4eda9dc982b489b87d18ab7b771ac787
+=======
+
 # ==========
 # Triangle:
 >>>>>>> b51e390b4eda9dc982b489b87d18ab7b771ac787
