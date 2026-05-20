@@ -33,6 +33,12 @@ week3.html: week3.Rmd
 
 poisson.Rout: poisson.R
 
+## These are just functions
+## trianglePlot_Poisson.Rout: trianglePlot_Poisson.R
+
+jdTriangle.Rout: jdTriangle.R trianglePlot_Poisson.rda
+jdTest.Rout: jdTest.R
+
 ### Makestuff
 
 Sources += Makefile

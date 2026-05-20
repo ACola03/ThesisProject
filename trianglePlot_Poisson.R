@@ -1,7 +1,4 @@
-library(checkPlotR)
-library(dplyr)
-library(purrr)
-library(reshape2)
+library(shellpipes)
 
 
 # =======================
@@ -9,9 +6,9 @@ library(reshape2)
 # DATA GENERATION
 
 generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4, 
-                            numReps = 1, testv = "poisson.test"){
-  set.seed(1)
-  
+                            numReps = 1, testv = "poisson.test", seed=1){
+  set.seed(seed)
+  ## Make these as parallel as possible, and explain why they even have to exist with a brief comment
   if (testv == "poisson.test"){
     poisson.data <- 
       purrr::map(lambdas, function(lambda){
@@ -19,7 +16,7 @@ generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4,
           dat <- rpois(numSims, lambda)
         }
         df <- data.frame(multPois(dat, lambda, testv), lambda)
-      }) %>% list_rbind()
+      }) |> list_rbind()
     
   } else if (testv == "wald.intercept"){
     poisson.data <- 
@@ -30,7 +27,7 @@ generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4,
         df <- data.frame(multPois(dat, lambda, testv), lambda)
       }) %>% list_rbind()
   }
-  
+  return(poisson.data)
 }
 
 # -----
@@ -338,3 +335,5 @@ trianglePlot <- function(lambdas, numSims = 1e4, numReps = 1, # defaulting to a 
     }
   }
 }
+
+saveEnvironment()
