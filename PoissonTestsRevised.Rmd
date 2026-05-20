@@ -1,5 +1,5 @@
 ---
-title: "PoissonTestsRevised"
+title: "Poisson Tests Revised"
 output: html_document
 date: "2026-5-10"
 ---
@@ -153,7 +153,6 @@ Using the methodology described above, we create a function to calculate the dat
     2.  First column: $\lambda$
     3.  All other columns: observed p-values ($p^*$) which act as the thresholds for $P(p\ge p^*), \,P(p\le p^*)$
     4.  Cell values: how many observations fall within the specified region defined by the threshold and direction (determined by *triangle.type*).
-
 
 ```{r}
 trianglePoisson.data <- function(stats, triangle.type, continuous = FALSE){
@@ -395,10 +394,10 @@ trianglePoisson.rightPlot(right.dataReduced, points = TRUE) +
 These are examples I wrote in my notebook, but wanted to transfer to code to make it easier to visualize different situations without manually drawing them. Since these are custom discrete distributions I had to rewrite the above functions. These examples will hopefully convince you why the plots are constructed in the chosen manner, and why the conservative/anti-conservative arguments apply.
 
 ```{r}
-triangleCustom.data <- function(stats, type){
+triangleCustom.data <- function(stats, type, discrete = TRUE){
   
   all.sum <- c()
-  thresholds <- c(0,sort(unique(stats$p)),1)
+  thresholds <- unique(c(0,sort(unique(stats$p)),1))
 
   p.data <- stats %>% pull(p)
   partial.sum <- c()
@@ -408,7 +407,9 @@ triangleCustom.data <- function(stats, type){
     partial.sum <- cbind(partial.sum, sum)
 
   } else if (type %in% c("greater", "right", "g")){
-    sum <- t(sapply(thresholds, function(t) sum(p.data >= t)))
+    sum <- if_else(discrete, t(sapply(thresholds, function(t) sum(p.data >= t))), 
+                  t(sapply(thresholds, function(t) sum(p.data > t))))
+
     partial.sum <- cbind(partial.sum, sum)
   }
     
@@ -420,7 +421,7 @@ triangleCustom.data <- function(stats, type){
   return(triangle.data)
 }
 
-triangleCustom.plot <- function(triangle.data, type, points = FALSE){
+triangleCustom.plot <- function(triangle.data, type, discrete = TRUE, points = FALSE){
   count.data <- 
     melt(triangle.data,
          variable.name = "p", 
@@ -430,8 +431,7 @@ triangleCustom.plot <- function(triangle.data, type, points = FALSE){
   
   intercept <- ifelse(type %in% c("less", "left", "l"), 0, 1)
   slope <- ifelse(type %in% c("less", "left", "l"), 1, -1)
-  direction <- ifelse(type %in% c("less", "left", "l"), "hv", "vh")
-  
+  direction <- if_else(((type %in% c("less", "left", "l")) || (discrete)), "hv", "vh") #tf
   
   plot <-
     ggplot(data = count.data) + 
@@ -454,12 +454,12 @@ triangleCustom.plot <- function(triangle.data, type, points = FALSE){
   
 }
 
-triangleCustom <- function(stats, points = FALSE){
-  left.data <- triangleCustom.data(stats, "left")
-  right.data <- triangleCustom.data(stats, "right")
+triangleCustom <- function(stats, points = FALSE, discrete = TRUE){
+  left.data <- triangleCustom.data(stats, "left", discrete)
+  right.data <- triangleCustom.data(stats, "right", discrete)
   
-  print(triangleCustom.plot(left.data, "left", points))
-  print(triangleCustom.plot(right.data, "right", points))
+  print(triangleCustom.plot(left.data, "left", points, discrete))
+  print(triangleCustom.plot(right.data, "right", points, discrete))
 }
 ```
 
@@ -505,11 +505,22 @@ triangleCustom(scen2, points = TRUE)
 # 'better' examples
 
 # perfect
-scenario1 <- data.frame(p = c(rep(book.example2$p.cdf[1], book.example2$scen1[1]),
+scenario1.c <- data.frame(p = c(rep(book.example2$p.cdf[1], book.example2$scen1[1]),
                               rep(book.example2$p.cdf[2], book.example2$scen1[2]),
                               rep(book.example2$p.cdf[3], book.example2$scen1[3]),
                               rep(book.example2$p.cdf[4], book.example2$scen1[4]),
                               rep(book.example2$p.cdf[5], book.example2$scen1[5])))
+
+scenario1.s <- data.frame(p = c(rep(book.example2$p.surv[1], book.example2$scen1[1]),
+                              rep(book.example2$p.surv[2], book.example2$scen1[2]),
+                              rep(book.example2$p.surv[3], book.example2$scen1[3]),
+                              rep(book.example2$p.surv[4], book.example2$scen1[4]),
+                              rep(book.example2$p.surv[5], book.example2$scen1[5])))
+
+r.d <- triangleCustom.data(scenario1.s, "right", discrete = FALSE)
+l.d <- triangleCustom.data(scenario1.c, "right")
+triangleCustom.plot(l.d, "right", points = TRUE)
+triangleCustom.plot(r.d, "right", points = TRUE, discrete = FALSE)
 
 triangleCustom(scenario1)
 
@@ -528,6 +539,8 @@ scenario3 <- data.frame(p = c(rep(book.example2$p.cdf[1], book.example2$scen3[1]
                               rep(book.example2$p.cdf[3], book.example2$scen3[3]),
                               rep(book.example2$p.cdf[4], book.example2$scen3[4]),
                               rep(book.example2$p.cdf[5], book.example2$scen3[5])))
+
+discrete <- TRUE
 
 triangleCustom(scenario3)
 ```

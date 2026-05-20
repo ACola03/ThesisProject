@@ -1,5 +1,5 @@
 ---
-title: "PoissonTests"
+title: "Poisson Tests"
 output: html_document
 date: "2026-04-29"
 ---
@@ -402,6 +402,8 @@ discreteCheck.poisson2(triangle.data.left, triangle.data.right, cp_poisson.exact
 
 discreteCheck.poisson(triangle.data.left, triangle.data.right)
 
+cp_poisson.exact
+
 # ==========
 
 checkPlot(cp_poisson.exact 
@@ -412,6 +414,124 @@ checkPlot(cp_poisson.exact
   scale_y_continuous(expand=c(0,100))+
   theme_classic() + 
   theme(panel.spacing.x = unit(2, "lines"))
+```
+
+```{r}
+# 
+set.seed(1)
+v <- rpois(n, 5)
+vv <- sapply(v, function(x) (
+  poisson.test(x, T=1, r=5, alternative = "less"))$p.value
+  )
+
+vvv <- sapply(v, function(x) (
+  poisson.test(x, T=1, r=5, alternative = "greater"))$p.value
+  )
+
+v4 <- vv + vvv
+
+hist(v)
+hist(vv)
+hist(vvv, breaks = 10)
+hist(v4,breaks = 10)
+```
+
+```{r}
+n <- 1e4
+set.seed(1)
+v <- rpois(n, 5)
+vv <- sapply(v, function(x) (
+  poisson.test(x, T=1, r=5, alternative = "less"))$p.value
+  )
+
+thresholds <- sort(unique(v))
+
+vv.star <- sapply(thresholds, function(x) (
+  sum(v <= x)/n)
+  )
+
+vvv <- sapply(thresholds, function(x) (
+  sum(v >= x)/n)
+  )
+
+#cbind(thresholds,vv.star, vvv, vv.star + vvv)
+
+# -- ok now ... what about vvv
+
+#thresholds <- sort(unique(vv))
+
+#vv.star <- sapply(thresholds, function(x) (
+#  sum(vv <= x)/n)
+#  )
+
+#vvv <- sapply(thresholds, function(x) (
+#  sum(vv >= x)/n)
+#  )
+
+v4 <- vv.star + vvv
+
+#cbind(thresholds,vv.star, vvv,v4)
+
+# --
+
+hist(v)
+hist(vv)
+hist(vvv, breaks = 10)
+hist(v4, breaks = 10)
+```
+
+```{r}
+set.seed(1)
+v <- rpois(n, 5)
+vv <- sapply(v, function(x) (ppois(x,5, lower.tail = TRUE))
+  )
+
+vvv <- sapply(sort(unique(vv)), function(x) (sum(vv >= x))
+  )
+
+v4 <- sort(unique(vv)) + vvv/10000
+
+sort(v4)
+
+hist(v)
+hist(vv)
+hist(unique(vvv), breaks = 10) # i needed the unique - it was giving bin counts ... but there are still issues
+hist(v4, breaks = 10)
+```
+
+```{r}
+n <- 1e4
+set.seed(1)
+v <- rpois(n, 5)
+vv <- sapply(v, function(x) (
+  ppois(x, lambda=5, lower.tail = TRUE))
+  )
+
+# -- ok now ... what about vvv
+
+thresholds <- sort(unique(vv))
+
+vv.star <- sapply(thresholds, function(x) (
+  sum(vv <= x)/n)
+  )
+
+vs <- rep(thresholds, vv.star*n)
+length(vs)
+
+vvv <- sapply(thresholds, function(x) (
+  sum(vv >= x)/n)
+  )
+
+v4 <- vv.star + vvv
+
+#cbind(thresholds,vv.star, vvv,v4)
+
+# --
+
+hist(v)
+hist(vv, breaks = 10)
+hist(vvv, breaks = 10)
+hist(v4, breaks = 10)
 ```
 
 ------------------------------------------------------------------------
