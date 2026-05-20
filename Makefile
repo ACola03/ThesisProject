@@ -5,7 +5,7 @@ current: target
 Ignore = target.mk
 
 vim_session:
-	bash -cl "vmt README.md TODO.md"
+	bash -ic "vmt README.md TODO.md"
 
 ######################################################################
 
@@ -20,13 +20,14 @@ Sources += *.R
 
 autoknit = defined
 autopipeR = defined
+
 TrianglePlots.html: TrianglePlots.Rmd
 
 ## Conservative.Rmd
 ## ProbabilityIntegralTransform.Rmd
 TestingFunctions.html: TestingFunctions.Rmd
 
-PoissonTests.html: PoissonTests.Rmd
+## PoissonTests.html: PoissonTests.Rmd
 
 week3.html: week3.Rmd
 

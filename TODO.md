@@ -16,17 +16,21 @@ rangePlots:
 
 ## Adam
 
-Make a perfect one-tailed triangle for y~1 exact
+Make a perfect one-tailed triangle for y~1 exact ✓
 
-Make a perfect two-tailed triangle for y~1 exact
+Make a perfect two-tailed triangle for y~1 exact ✗
 
-How else can we get one-tailed P values for y~1?
+How else can we get one-tailed P values for y~1? …
 * Wald
 * Something better but not exact?
 	* likelihood profile
 
-Once this is done, move on to glm(y~x, family=Poisson)
+… Once this is done, move on to glm(y~x, family=Poisson)
 
-## Jonathan
+Break things into chunks
+* do slow things separately and don't repeat them
+* stuff that you're playing with vs stuff you are ready to show people …
+
+# Jonathan
 
 Live large
