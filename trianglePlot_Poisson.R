@@ -1,5 +1,5 @@
 library(shellpipes)
-
+rpcall("trianglePlot_Poisson.Rout trianglePlot_Poisson.pipestar trianglePlot_Poisson.R")
 
 # =======================
 
