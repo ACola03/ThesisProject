@@ -37,7 +37,9 @@ poisson.Rout: poisson.R
 ## trianglePlot_Poisson.Rout: trianglePlot_Poisson.R
 
 jdTriangle.Rout: jdTriangle.R trianglePlot_Poisson.rda
-jdTest.Rout: jdTest.R
+
+## jdTest.Rout: jdTest.R trianglePlot_Poisson.R
+jdTest.Rout: jdTest.R trianglePlot_Poisson.rda
 
 ### Makestuff
 
