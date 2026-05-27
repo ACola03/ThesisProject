@@ -1,13 +1,21 @@
+#library(shellpipes) ## to load the package
+#startGraphics()
 
-set.seed(23)
-lambda <- 2
+library(checkPlotR)
+library(dplyr)
+library(purrr)
+library(reshape2)
+library(shellpipes)
 
-d <- rpois(1, lambda)
-d <- 0:8
+source("trianglePlot_Poisson.R")
 
-data.frame(
-	lower=ppois(q=d+0.5, lambda = lambda)
-	, upper=1-ppois(q=d-0.5, lambda = lambda)
-	, one=1
-)
+trianglePlot(lambda = c(1,3,5), plot = "both", testv = "poisson.test", fuzz.x = TRUE, add.checkplot = TRUE)
+trianglePlot(lambda = c(1,3,5), plot = "both", testv = "poisson.test", fuzz.x = FALSE, add.checkplot = TRUE)
+trianglePlot(lambda = c(1,3, 5), plot = "one", testv = "wald.intercept", fuzz.x = FALSE, add.checkplot = TRUE)
+
+
+
+
+
+
 
