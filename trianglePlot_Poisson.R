@@ -5,10 +5,6 @@ rpcall("trianglePlot_Poisson.Rout trianglePlot_Poisson.pipestar trianglePlot_Poi
 
 # DATA GENERATION
 
-# Changes:
-# i) Made the cases as parallel as possible with brief descriptions
-# ii) Using the 'proper' pipes (|>)
-
 # Description: For each lambda, create a dataframe of numSims poisson responses
 # i) poisson.test is the simplest case where counts don't require the consideration below
 # ii) since GLMs improve with a larger sample size per experiment, we enable this with numReps
@@ -18,12 +14,13 @@ rpcall("trianglePlot_Poisson.Rout trianglePlot_Poisson.pipestar trianglePlot_Poi
 
 generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4, 
                             numReps = 1, testv = "poisson.test"){
+  dat.null <- is.null(dat)
   
   poisson.data <- purrr::map(lambdas, function(lambda){
-    if (testv == "poisson.test" & is.null(dat)){
+    if (testv == "poisson.test" & dat.null){
       dat <- rpois(numSims, lambda)
       
-    } else if (testv == "wald.intercept" & is.null(dat)){
+    } else if (testv == "wald.intercept" & dat.null){
       dat <- purrr::map(c(1:numSims), function(dummy){
         rpois(numReps, lambda)
       }) |> rbind()
@@ -35,13 +32,6 @@ generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4,
 }
 
 # -----
-
-# Changes:
-# i) used ppois instead of poisson.test
-# ii) added proper two-tailed p-values
-# iii) an attempt at fuzzing wald.intercept p-values 
-# iv) deciding to keep the confidence interval for slugPlots
-# v) improved variable names (as requested) -> left.strict
 
 # Description: calculate necessary quantities for p-value diagnostics
 # i) the cases are separate due to different distributions (pois vs norm)
@@ -55,23 +45,19 @@ multPois <- function(dat, lambda0, testv){
         gt <- 1 - ppois(q = d - 0.5, lambda = lambda0, lower.tail = TRUE)
         bt.strict <- ppois(q = d, lambda = lambda0, lower.tail = TRUE) - dpois(d, lambda0)
         gt.strict <- ppois(q = d, lambda = lambda0, lower.tail = FALSE)
-        two.tail <- min(2*min(bt,gt), 1) # instead of poisson.test exact two-tail
         rp <- bt + runif(1) * (1-gt - bt)
-        r.two.tail <- min(2*min(rp,1-rp), 1)
         ci <- stats::poisson.test(d, T = 1, r = lambda0, alternative = "two.sided")
         return(data.frame(est = d,
                           left.exact = bt,
                           right.exact = gt,
-                          two.exact = two.tail,
                           left.strict = bt.strict,
                           right.strict = gt.strict,
-                          p = rp,
-                          two.p = r.two.tail,
+                          p = round(rp,6),
                           lower = ci$conf.int[1],
                           upper = ci$conf.int[2],
                           test = testv)
         )
-      }) %>%
+      }) |>
       list_rbind()
     
   } else if (testv == "wald.intercept"){
@@ -83,7 +69,6 @@ multPois <- function(dat, lambda0, testv){
         w <- est/se # N(0,1) ... since divide by se -> s2
         bt <- pnorm(w, mean = 0, sd = 1, lower.tail = TRUE)
         gt <- pnorm(w, mean = 0, sd = 1, lower.tail = FALSE)
-        two.tail <- min(2*min(bt,gt), 1) 
         ci.lower <- est - 1.96*se
         ci.upper <- est + 1.96*se 
         # rp <- I THINK THIS IS POSSIBLE ... COMING NEXT
@@ -91,15 +76,14 @@ multPois <- function(dat, lambda0, testv){
                           int.est = est, # int meaning intercept
                           int.se = se,
                           z.value = w,
-                          left = bt, # not really needed
-                          right = gt, # not really needed
-                          p = bt, # this currently isn't fuzzed but is treated as such
-                          two.p = two.tail,
+                          left.exact = bt, 
+                          right.exact = gt, 
+                          p = round(bt,6), # this currently isn't fuzzed but is treated as such
                           lower = ci.lower,
                           upper = ci.upper,
                           testv = testv)
         )
-      }) %>% 
+      }) |> 
       list_rbind()
   }
 }
@@ -107,29 +91,6 @@ multPois <- function(dat, lambda0, testv){
 # =======================
 
 # TRIANGLE PLOT PREPARATION
-
-# Changes / Comments:
-# i) use.left is to determine which is the primary tail (left or right)
-#    this will determine which tail is measured in the left (primary) plot
-#    however, I don't really see much use for this, which we can discuss
-
-# ii) point.mass controls whether we calculate >= or >
-#     I recommend setting this to TRUE since it is the most logical choice
-#     however, the plots will look identical regardless of the input since 
-#     the step drawing choice (hv or vh) is chosen appropriately 
-
-# iii) upon construction, any 'p' or 'two.p' column represents fuzzed or continuous p-values
-#     however, upon writing this, I realize that the wald.intercept 'p' represents a 
-#     continuous p-value but not a fuzzed p-value so if I fuzz it, I need to change names
-#     ... actually, I'll have 'p' represent the fuzz and 'left.exact' represent the non-fuzz
-#     or I'll use 'rp' instead of 'p' to be super clear that it is randomized .. keep convention
-
-# iv) I like using 'else if' instead of 'else' so it's clear what the other condition is
-
-# v) technically, for the wald case, they aren't fuzzed and can seem discrete, but until 
-#    they are fuzzed we assume they have such behaviour so the fuzz condition may not 
-#    align with the choice of using continuous approximation so logicals may need to be changed 
-#    (in reference to fuzz.x | testv != ... )
 
 # Description: prepare data for triangle plot creation
 # i) the acceptable 'plot' input is 'one' or 'two' to denote which tail types we want to plot
@@ -139,37 +100,30 @@ multPois <- function(dat, lambda0, testv){
 # ii) eventually, the 'p' column is modified as desired so I can avoid considering
 #     multiple cases in the auxiliary function
 
-triangleData.poisson <- function(dat, plot = "one", point.mass = TRUE, 
-                                 fuzz.x = TRUE, use.left = TRUE, testv = "poisson.test"){
+triangleData.poisson <- function(dat, point.mass = TRUE, fuzz.x = FALSE, 
+                                 testv = "poisson.test"){
   
   if (fuzz.x | testv != "poisson.test"){ # any continuous approximation
+    thresholds <- sort(unique(c(0, 0.5, 1, dat$p)))
+    left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "left")
     
-    p.col <- if (plot == "one") dat$p else dat$two.p
-    thresholds <- sort(unique(round(c(0, 0.5, 1, p.col), 6)))
-    dat$p <- p.col
+    dat$p <- 1-dat$p
+    thresholds <- sort(unique(c(0, 0.5, 1, dat$p)))
+    right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "right")
     
-    left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot="left")
-    right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot="right")
+    # maybe i can simplify this by taking thresholds from dat$p and always changing $p to what i want
     
-  } else if (plot == "one"){
+  } else {
     thresholds <- sort(unique(c(0, 0.5, 1, dat$left.exact)))
     dat$p <- dat$left.exact
     left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "left")
     
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$right.strict)))
-    dat$p <- dat$right.strict
-    right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "right")
-    
-  } else if (plot == "two"){
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$two.exact)))
-    dat$p <- dat$two.exact
-    
-    left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "left")
+    thresholds <- sort(unique(c(0, 0.5, 1, dat$right.exact)))
+    dat$p <- dat$right.exact
     right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "right")
   }
   
   return(list("left.data" = left.data, "right.data" = right.data))
-  
 }
 
 # -----
@@ -177,22 +131,22 @@ triangleData.poisson <- function(dat, plot = "one", point.mass = TRUE,
 triangleData.poisson.aux <- function(dat, thresholds, point.mass = TRUE, plot = "left"){
   
   if (point.mass){
-    cmp <- if (plot == "left") `<=` else `>=`
+    cmp <- `<=` 
   } else {
-    cmp <- if (plot == "left") `<` else `>`
+    cmp <- `<` 
   }
   
   data.aux <-
-    dat %>% split(dat$lambda) %>%
+    dat |> split(dat$lambda) |>
     purrr::map(function(dat){
       purrr::map(thresholds, function(f){
         sum <- sum(cmp(dat$p, f))
         setNames(data.frame(sum), as.character(f))
-      }) %>% list_cbind()
-    }) %>% list_rbind()
+      }) |> list_cbind()
+    }) |> list_rbind()
   
-  data.aux <- data.aux %>%
-    mutate(lambda = unique(dat$lambda)) %>%
+  data.aux <- data.aux |>
+    mutate(lambda = unique(dat$lambda)) |>
     select(lambda, everything())
   
   return(data.aux)
@@ -202,51 +156,45 @@ triangleData.poisson.aux <- function(dat, thresholds, point.mass = TRUE, plot = 
 
 # MAKE TRIANGLE PLOTS
 
-# Comments:
-# i) Cannot construct both 'one' and 'two' plots at the same time since 
-#    'dat' is specific to 'one' or 'two'. Will be handled by wrapper.
-
 trianglePlot.poisson <- function(dat, testv, plot = "one", 
                                  fuzz.x = TRUE, point.mass = TRUE, add.points = FALSE){
   
-  dat.left <- dat$left.data
-  dat.right <- dat$right.data
-  
-  prep <- function(dat){
-    dat %>% 
-      melt(id.vars = "lambda", variable.name = "p", value.name = "count") %>%
+  prep <- function(dat, plot = "left"){
+    dat |> 
+      melt(id.vars = "lambda", variable.name = "p", value.name = "count") |>
       mutate(p = as.double(as.character(p)),
+             p = if (plot == "right") 1 - p else p,
              cum.prop = count/max(count)
       )
   }
   
-  if (plot == "one"){
-    plot.data.left <- prep(dat.left)
-    triangle.plot.left <- trianglePlot.poisson.aux(plot.data.left, NULL, 
-                                                   testv, plot = "left", fuzz.x, 
-                                                   point.mass, add.points)
+  dat.left <- dat$left.data
+  dat.right <- dat$right.data
+  
+  plot.data.left <- prep(dat.left, plot = "left")
+  plot.data.right <- prep(dat.right, plot = "right")
+  
+  triangle.plot.left <- NULL
+  triangle.plot.right <- NULL
+  triangle.plot.two <- NULL
+  
+  if (plot %in% c("one", "both")) {
+    triangle.plot.left <- trianglePlot.poisson.aux(
+      plot.data.left, NULL, testv, plot = "left", 
+      fuzz.x, point.mass, add.points)
     
-    plot.data.right <- prep(dat.right)
-    triangle.plot.right <- trianglePlot.poisson.aux(NULL, plot.data.right, 
-                                                    testv, plot = "right", fuzz.x, 
-                                                    point.mass, add.points)
+    triangle.plot.right <- trianglePlot.poisson.aux(
+      NULL, plot.data.right, testv, plot = "right",
+      fuzz.x, point.mass, add.points)
+  }
+  
+  if (plot %in% c("two", "both")) {
+    plot.data.left <- plot.data.left |> filter(p <= 0.5) 
+    plot.data.right <- plot.data.right |> filter(p >= 0.5)
     
-    triangle.plot.two <- NULL
-    
-  } else if (plot == "two"){  
-    plot.data.left <- prep(dat.left)
-    plot.data.right <- prep(dat.right)
-    
-    # take the correct half of the data corresponding to triangle side
-    plot.data.left <- plot.data.left %>% filter(p <= 0.5) 
-    plot.data.right <- plot.data.right %>% filter(p >= 0.5)
-    
-    triangle.plot.two <- trianglePlot.poisson.aux(plot.data.left, plot.data.right, 
-                                                  testv, plot = "two", fuzz.x, 
-                                                  point.mass, add.points)
-    
-    triangle.plot.left <- NULL
-    triangle.plot.right <- NULL
+    triangle.plot.two <- trianglePlot.poisson.aux(
+      plot.data.left, plot.data.right, testv,
+      plot = "two", fuzz.x, point.mass, add.points)
   }
   
   return(list("left.plot" = triangle.plot.left, 
@@ -263,43 +211,38 @@ trianglePlot.poisson.aux <- function(dat.left, dat.right, testv, plot = "left",
   step.left <- ifelse(inclusive | fuzz.x, "hv", "vh")
   step.right <- ifelse(inclusive| fuzz.x, "vh", "hv")
   
-  if (plot == "left"){
-    triangle.plot <- ggplot(data = dat.left) + 
-      geom_step(aes(x = p, y = cum.prop), direction = step.left) +
-      geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
-      facet_grid(~lambda) +
-      theme_classic() +
-      theme(panel.spacing.x = unit(2, "lines"), 
-            axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
-      labs(x = "nominal p value",
-           y = "cumulative prop. more extreme",
-           title = "Triangle Plot: Poisson")
-    if (add.points){
-      triangle.plot <- triangle.plot + geom_point(aes(x = p, y = cum.prop))
-    }
+  base.theme <- theme_classic() +
+    theme(panel.spacing.x = unit(2, "lines"), 
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  
+  base.labs <- labs(x = "nominal p value",
+                    y = "cumulative prop. more extreme",
+                    title = "Triangle Plot: Poisson")
+  
+  if (plot %in% c("left", "right")){
     
-  } else if (plot == "right"){
-    triangle.plot <- ggplot(data = dat.right) + 
-      geom_step(aes(x = p, y = cum.prop), direction = step.right) +
-      geom_abline(intercept = 1, slope = -1, linetype = "dashed") +
-      facet_grid(~lambda) +
-      theme_classic() +
-      theme(panel.spacing.x = unit(2, "lines"), 
-            axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
-      labs(x = "nominal p value",
-           y = "cumulative prop. more extreme",
-           title = "Triangle Plot: Poisson") 
+    dat <- if (plot == "left") dat.left else dat.right
+    step <- if (plot == "left") step.left else step.right
+    ref.line <- 
+      if (plot == "left") geom_abline(intercept = 0, slope = 1, linetype = 2) 
+    else geom_abline(intercept = 1, slope = -1, linetype = 2) 
     
-    if (add.points){
+    triangle.plot <- ggplot(data = dat) +
+      geom_step(aes(x = p, y = cum.prop), direction = step) +
+      ref.line + 
+      facet_grid(~lambda) +
+      base.theme +
+      base.labs
+    
+    if (add.points)
       triangle.plot <- triangle.plot + geom_point(aes(x = p, y = cum.prop))
-    } 
     
   } else if (plot == "two"){
     # properly connects the left and right triangles ... facet on lambda
     joinData <- data.frame(lambda = rep(unique(dat.left$lambda), 2),
                            p = rep(0.5, 2*length(unique(dat.left$lambda))),
-                           cum.prop = c(dat.left %>% filter(p == 0.5) %>% pull(cum.prop),
-                                        dat.right %>% filter(p == 0.5) %>% pull(cum.prop)))
+                           cum.prop = c(dat.left |> filter(p == 0.5) |> pull(cum.prop),
+                                        dat.right |> filter(p == 0.5) |> pull(cum.prop)))
     
     # triangle reference lines ... facet on lambda
     referenceData.left <- data.frame(lambda = sort(rep(unique(dat.left$lambda), 2)),
@@ -321,12 +264,8 @@ trianglePlot.poisson.aux <- function(dat.left, dat.right, testv, plot = "left",
       geom_line(data = referenceData.left, aes(x = p, y = cum.prop), col = "black", linetype = "dashed") +
       geom_line(data = referenceData.right, aes(x = p, y = cum.prop), col = "black", linetype = "dashed") +
       facet_grid(~lambda) + 
-      theme_classic() +
-      theme(panel.spacing.x = unit(2, "lines"),
-            plot.title = element_text(size = 15))+
-      labs(x="nominal p-value", 
-           y = "cum. prop. more extreme",
-           title = sprintf("Triangle Plots: Poisson"))
+      base.theme +
+      base.labs
     
     if (add.points){
       triangle.plot <- triangle.plot + 
@@ -343,51 +282,39 @@ trianglePlot.poisson.aux <- function(dat.left, dat.right, testv, plot = "left",
 
 # WRAPPER
 
-trianglePlot <- function(lambdas, numSims = 1e4, numReps = 1, # defaulting to a discrete fuzzed approach
+# Comments:
+# i) The 'family == "poisson"' condition exists for expsanion into more families
+# ii) The default parameters behave for a non-fuzzed approach
+
+trianglePlot <- function(lambdas, numSims = 1e4, numReps = 1, 
                          family = "poisson", testv = "poisson.test",
-                         plot = "both", dat = NULL, use.left = TRUE, fuzz.x = TRUE,
+                         plot = "both", dat = NULL, fuzz.x = FALSE,
                          point.mass = TRUE, add.points = FALSE, add.checkplot = FALSE){
   
-  if (family == "poisson"){ # intention of adding more families
-    # generate data
+  if (family == "poisson"){ 
     dat <- generatePoisson(lambdas, dat, numSims, numReps, testv)
     
     if (add.checkplot){
-      checkplot <- checkPlot(dat, facets = length(unique(dat$lambda))) + facet_grid(~lambda)
-      print(checkplot)
-      #hist(dat$two.exact)
-      hist(dat$two.p)
+      dat.temp <- dat
+      
+      if (!fuzz.x) 
+        dat.temp$p <- dat.temp$left.exact
+      
+      checkplot <- checkPlot(dat.temp, facets = length(unique(dat$lambda))) + facet_grid(~lambda)
+      print(checkplot) 
     }
     
-    # prepare plotting data & plot it
-    if (plot == "one" | plot == "both"){
-      triangle.data <- triangleData.poisson(dat, plot = "one", point.mass, 
-                                            fuzz.x, use.left, testv)
-      
-      triangle.plots <- trianglePlot.poisson(triangle.data, testv, 
-                                             plot = "one", fuzz.x, point.mass,
-                                             add.points)  
-      
-      left.plot <- triangle.plots$left.plot
-      right.plot <- triangle.plots$right.plot
-      
-      print(left.plot)
-      print(right.plot)
-      
-    }
+    triangle.data <- triangleData.poisson(dat, point.mass, fuzz.x, testv)
+    triangle.plots <- trianglePlot.poisson(triangle.data, testv, plot, 
+                                           fuzz.x, point.mass, add.points)  
     
-    if (plot == "two" | plot == "both"){
-      triangle.data <- triangleData.poisson(dat, plot = "two", point.mass, 
-                                            fuzz.x, use.left, testv)
-      
-      triangle.plots <- trianglePlot.poisson(triangle.data, testv, 
-                                             plot = "two", fuzz.x, point.mass,
-                                             add.points)  
-      
-      two.plot <- triangle.plots$two.plot
-      print(two.plot)
-      
-    }
+    left.plot <- triangle.plots$left.plot
+    right.plot <- triangle.plots$right.plot
+    two.plot <- triangle.plots$two.plot
+    
+    if (!is.null(left.plot)) print(left.plot)
+    if (!is.null(right.plot)) print(right.plot)
+    if (!is.null(two.plot)) print(two.plot)
   }
 }
 
