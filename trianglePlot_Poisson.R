@@ -318,4 +318,38 @@ trianglePlot <- function(lambdas, numSims = 1e4, numReps = 1,
   }
 }
 
+# ==========
+
+# WALD FUZZ
+
+# Notes:
+# i) filter.zero controls whether the count is conditional on being greater than 0
+# ii) currently, due to decimal precision p-values for identical counts can be very
+#     slightly different, but identical under print(). This causes some issue when 
+#     naming columns by the p-value, which is needed to determine the empirical 
+#     extremeness. Because of this, I just round to 4 (could change to 6) decimal
+#     places. However, a better way to do this is to just take the maximum p-value
+#     for each count, since they should only be slightly different (unnoticable). 
+
+wald.fuzz <- function(wald.data, filter.zero = FALSE){
+  
+  if (filter.zero) wald.data <- wald.data %>% filter(pois.mean > 0)
+  
+  wald.intervals <- wald.data %>%
+    distinct(lambda, p) %>%
+    arrange(lambda, p) %>%
+    group_by(lambda) %>%
+    mutate(
+      p.lower = lag(p, default = 0),
+      p.upper = p
+    ) %>%
+    ungroup()
+  
+  fuzz.df <- wald.data %>% 
+    left_join(wald.intervals, by = c("lambda", "p")) %>%
+    mutate(rp = runif(n(), min = p.lower, max = p.upper))
+  
+  return(fuzz.df)
+}
+
 saveEnvironment()
