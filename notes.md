@@ -28,19 +28,22 @@
 
 **Supervised and Unsupervised:**
 
--   We are doing something supervised
+- The original “fuzzed” piano plots are “supervised”
 
-    -   Do it in some sort of unsupervised way (figure out what that means) and apply it to binomial or poisson to get unsupervised pianoPlots
+	- Making use of knowledge about the values of the statistic
+
+- The piano plots we're trying with Wald are unsupervised (I think)
+
+	- That is, based on aggregating P values, not based on knowledge about possible values
+
+	- Try to confirm you can get perfect unsupervised piano plots for
+	binomial or Poisson
 
 -   Unsupervised fuzzing of something that is clean (exact poisson test)
 
     -   Then empirically fuzz for Wald when $\lambda = 50$
 
 **Weird Wald P-Values:** (ideas that were brought up)
-
--   Give them a p-value of 0 and then fuzz them
-
-    -   What would the upper bound be? If it's 1, then it shouldn't have a change in the pianoPlot if counts of 0 were removed ... maybe (since the order is not always based on count)
 
 -   Increase $\lambda \rightarrow 50$
 
