@@ -1,3 +1,7 @@
+---
+---
+---
+
 ### **Meeting Notes**
 
 ------------------------------------------------------------------------
@@ -70,6 +74,8 @@
 
 ------------------------------------------------------------------------
 
+\newpage
+
 #### **June 9, 2026 (pre-meeting thoughts about the above):**
 
 **Improving The Wald:**
@@ -122,16 +128,11 @@
 
 **Weird Wald P-Values:**
 
--   Increase $\lambda \rightarrow50$ results shown below:
+-   Increase $\lambda \rightarrow50$ results sent by email (since they won't show on github repo):
     -   Non-Fuzzed Wald P-Values
     -   Fuzzed P-Values - excluding any counts of 0 (1,10,50)
     -   Fuzzed P-Values - including all counts of 0 (1,10,50) ... main object of interest
-
-![](mdImages/poisson/June9/check.png){width="550"}
-
-![](mdImages/poisson/June9/pp1.png){width="200"} ![](mdImages/poisson/June9/pp10.png){width="200"} ![](mdImages/poisson/June9/pp50.png){width="200"}
-
-![](mdImages/poisson/June9/check2.png){width="550"}
+    -   As expected, larger $\lambda$ produces better pianos
 
 **Fitting Models:**
 
