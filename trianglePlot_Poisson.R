@@ -12,21 +12,27 @@ rpcall("trianglePlot_Poisson.Rout trianglePlot_Poisson.pipestar trianglePlot_Poi
 #      by providing their own data, they can evaluate it against candidate lambdas, which is useful
 # iv) each map() call returns a dataframe per lambda, which are then bound by row
 
-generatePoisson <- function(lambdas, dat = NULL,  numSims = 1e4, 
-                            numReps = 1, testv = "poisson.test"){
+generatePoisson <- function(lambdas, dat = NULL,  
+                            numSims = 1e4, numReps = 1, testv = "poisson.test"){
+  
   dat.null <- is.null(dat)
   
   poisson.data <- purrr::map(lambdas, function(lambda){
     if (testv == "poisson.test" & dat.null){
       dat <- rpois(numSims, lambda)
       
-    } else if (testv == "wald.intercept" & dat.null){
+    } else if (testv %in% c("wald.intercept", "lrt") & dat.null){
       dat <- purrr::map(c(1:numSims), function(dummy){
         rpois(numReps, lambda)
       }) |> rbind()
     }
     
-    df <- data.frame(multPois(dat, lambda, testv), lambda)}) |> list_rbind()
+    df <- data.frame(testv, lambda, multPois(dat, lambda, testv))}
+  ) |> list_rbind()
+  
+  # for stability
+  if (testv %in% c("wald.intercept", "lrt"))
+    poisson.data <- poisson.data |> group_by(pois.mean, lambda) |> mutate(cp = round(max(cp),6)) %>% ungroup() # !
   
   return(poisson.data)
 }
@@ -43,19 +49,10 @@ multPois <- function(dat, lambda0, testv){
       purrr::map(dat, function(d){
         bt <- ppois(q = d + 0.5, lambda = lambda0, lower.tail = TRUE)
         gt <- 1 - ppois(q = d - 0.5, lambda = lambda0, lower.tail = TRUE)
-        bt.strict <- ppois(q = d, lambda = lambda0, lower.tail = TRUE) - dpois(d, lambda0)
-        gt.strict <- ppois(q = d, lambda = lambda0, lower.tail = FALSE)
-        rp <- bt + runif(1) * (1-gt - bt)
-        ci <- stats::poisson.test(d, T = 1, r = lambda0, alternative = "two.sided")
-        return(data.frame(est = d,
+        return(data.frame(pois.mean = d,
                           left.exact = bt,
                           right.exact = gt,
-                          left.strict = bt.strict,
-                          right.strict = gt.strict,
-                          p = round(rp,6),
-                          lower = ci$conf.int[1],
-                          upper = ci$conf.int[2],
-                          test = testv)
+                          cp = bt)
         )
       }) |>
       list_rbind()
@@ -69,23 +66,114 @@ multPois <- function(dat, lambda0, testv){
         w <- est/se # N(0,1) ... since divide by se -> s2
         bt <- pnorm(w, mean = 0, sd = 1, lower.tail = TRUE)
         gt <- pnorm(w, mean = 0, sd = 1, lower.tail = FALSE)
-        ci.lower <- est - 1.96*se
-        ci.upper <- est + 1.96*se 
-        # rp <- I THINK THIS IS POSSIBLE ... COMING NEXT
         return(data.frame(pois.mean = mean(d),
-                          int.est = est, # int meaning intercept
+                          int.est = est, 
                           int.se = se,
                           z.value = w,
                           left.exact = bt, 
                           right.exact = gt, 
-                          p = round(bt,6), # this currently isn't fuzzed but is treated as such
-                          lower = ci.lower,
-                          upper = ci.upper,
-                          testv = testv)
+                          cp = bt)
         )
       }) |> 
       list_rbind()
+    
+  } else if (testv == "lrt"){
+    df <-
+      purrr::map(dat, function(d){
+        null.model <- glm(d ~ -1 + offset(log(0*d+lambda0)), family = poisson())
+        full.model <- glm(d ~ 1 + offset(log(0*d+lambda0)), family = poisson())
+        est <- coef(full.model)[[1]] # N(0, s2) ... mean intercept 0 
+        anova <- anova(null.model, full.model, test = "LRT")
+        deviance <- anova$Deviance[2]
+        p <- ifelse(deviance < 0, 1, anova$`Pr(>Chi)`[2]) # sometimes negative -> NA
+        return(data.frame(pois.mean = mean(d),
+                          int.est = est,
+                          deviance = deviance,
+                          left.exact = 1-p, 
+                          right.exact = p, 
+                          cp = p)
+        )
+      }) |> 
+      list_rbind()
+  } 
+}
+
+# -----
+
+# FUZZING
+
+fuzzPoisson <- function(dat, testv, fuzz.type = "supervised", use.fuzz = TRUE){
+  
+  if (fuzz.type == "supervised"){
+    dat <- supervised.fuzz(dat, testv)
+  } 
+  else if (fuzz.type == "unsupervised"){
+    dat <- unsupervised.fuzz(dat)
   }
+  
+  if (use.fuzz) dat$p <- dat$rp
+  else dat$p <- dat$cp
+  
+  return(dat)
+}
+
+supervised.fuzz <- function(dat, testv){
+  
+  if (testv == "poisson.test"){
+    supervised <- dat%>%
+      mutate(rp.lower = 1 - right.exact,
+             rp.upper = left.exact,
+             rp = runif(n(), rp.lower, rp.upper))
+  }
+  else if (testv == "lrt"){
+    lrt.intervals <- dat %>%
+      distinct(lambda, pois.mean, cp) %>%
+      arrange(lambda, pois.mean) %>%
+      group_by(lambda) %>%
+      mutate(rp.lower  = ifelse(pois.mean <= lambda, lag(cp, default = 0), cp),
+             rp.upper = ifelse(pois.mean <= lambda, cp, lag(cp, default = 0))) %>%
+      ungroup()
+    
+    supervised <- dat %>% 
+      left_join(lrt.intervals, by  = c("lambda", "pois.mean", "cp")) %>%
+      mutate(rp = runif(n(), rp.lower, rp.upper))
+  }
+  else if (testv == "wald.intercept"){ # AN IDEA I HAD
+    wald.intervals <- dat %>%
+      distinct(lambda, pois.mean, p) %>%
+      arrange(lambda, pois.mean) %>%
+      mutate(p = ifelse(pois.mean == 0, 0, p)) %>%
+      group_by(lambda) %>%
+      mutate(rp.lower  = ifelse(pois.mean <= lambda, p, lag(p)),
+             rp.upper = ifelse(pois.mean <= lambda, lead(p, default = 1), p)) %>%
+      ungroup() %>%
+      select(-p)
+    
+    supervised <- dat %>% 
+      left_join(wald.intervals, by  = c("lambda", "pois.mean")) %>%
+      mutate(rp = runif(n(), rp.lower, rp.upper))
+  }
+  
+  return(supervised)
+}
+
+unsupervised.fuzz <- function(dat){
+  
+  fuzz.intervals <- dat %>% 
+    distinct(lambda, pois.mean, cp) %>% 
+    arrange(lambda, cp) %>% # if you sort based on pois.mean it would be supervised, otherwise arrange on cp
+    group_by(lambda) %>%
+    mutate(
+      rp.lower = lag(cp, default = 0),
+      rp.upper = cp
+    ) %>%
+    ungroup()
+  
+  fuzz.df <- dat %>% 
+    left_join(fuzz.intervals, by = c("lambda", "cp", "pois.mean")) %>% 
+    mutate(rp = runif(n(), min = rp.lower, max = rp.upper))
+  
+  return(fuzz.df)
 }
 
 # =======================
@@ -97,38 +185,23 @@ multPois <- function(dat, lambda0, testv){
 #    'one' will plot one-sided triangles, while 'two' will plot the combined triangles
 #    the choice determines how the data will be pre-processed
 
-# ii) eventually, the 'p' column is modified as desired so I can avoid considering
-#     multiple cases in the auxiliary function
-
-triangleData.poisson <- function(dat, point.mass = TRUE, fuzz.x = FALSE, 
+triangleData.poisson <- function(dat, point.mass = TRUE, use.fuzz = FALSE, 
                                  testv = "poisson.test"){
   
-  if (fuzz.x | testv != "poisson.test"){ # any continuous approximation
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$p)))
-    left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "left")
-    
-    dat$p <- 1-dat$p
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$p)))
-    right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "right")
-    
-    # maybe i can simplify this by taking thresholds from dat$p and always changing $p to what i want
-    
-  } else {
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$left.exact)))
-    dat$p <- dat$left.exact
-    left.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "left")
-    
-    thresholds <- sort(unique(c(0, 0.5, 1, dat$right.exact)))
-    dat$p <- dat$right.exact
-    right.data <- triangleData.poisson.aux(dat, thresholds, point.mass, plot = "right")
-  }
+  dat$p <- if (use.fuzz | testv != "poisson.test") dat$p else dat$left.exact
+  thresholds <- sort(unique(c(0, 0.5, 1, dat$p)))
+  left.data <- triangleData.poisson.aux(dat, thresholds, point.mass)
+  
+  dat$p <- if (use.fuzz | testv != "poisson.test") 1 - dat$p else dat$right.exact
+  thresholds.right <- sort(unique(c(0, 0.5, 1, dat$p)))
+  right.data <- triangleData.poisson.aux(dat, thresholds, point.mass)
   
   return(list("left.data" = left.data, "right.data" = right.data))
 }
 
 # -----
 
-triangleData.poisson.aux <- function(dat, thresholds, point.mass = TRUE, plot = "left"){
+triangleData.poisson.aux <- function(dat, thresholds, point.mass = TRUE){
   
   if (point.mass){
     cmp <- `<=` 
@@ -157,7 +230,7 @@ triangleData.poisson.aux <- function(dat, thresholds, point.mass = TRUE, plot = 
 # MAKE TRIANGLE PLOTS
 
 trianglePlot.poisson <- function(dat, testv, plot = "one", 
-                                 fuzz.x = TRUE, point.mass = TRUE, add.points = FALSE){
+                                 use.fuzz = TRUE, point.mass = TRUE, add.points = FALSE){
   
   prep <- function(dat, plot = "left"){
     dat |> 
@@ -181,11 +254,11 @@ trianglePlot.poisson <- function(dat, testv, plot = "one",
   if (plot %in% c("one", "both")) {
     triangle.plot.left <- trianglePlot.poisson.aux(
       plot.data.left, NULL, testv, plot = "left", 
-      fuzz.x, point.mass, add.points)
+      use.fuzz, point.mass, add.points)
     
     triangle.plot.right <- trianglePlot.poisson.aux(
       NULL, plot.data.right, testv, plot = "right",
-      fuzz.x, point.mass, add.points)
+      use.fuzz, point.mass, add.points)
   }
   
   if (plot %in% c("two", "both")) {
@@ -194,7 +267,7 @@ trianglePlot.poisson <- function(dat, testv, plot = "one",
     
     triangle.plot.two <- trianglePlot.poisson.aux(
       plot.data.left, plot.data.right, testv,
-      plot = "two", fuzz.x, point.mass, add.points)
+      plot = "two", use.fuzz, point.mass, add.points)
   }
   
   return(list("left.plot" = triangle.plot.left, 
@@ -205,11 +278,11 @@ trianglePlot.poisson <- function(dat, testv, plot = "one",
 # -----
 
 trianglePlot.poisson.aux <- function(dat.left, dat.right, testv, plot = "left", 
-                                     fuzz.x = TRUE, point.mass = TRUE, add.points = FALSE){
+                                     use.fuzz = TRUE, point.mass = TRUE, add.points = FALSE){
   
   inclusive <- point.mass | testv != "poisson.test"
-  step.left <- ifelse(inclusive | fuzz.x, "hv", "vh")
-  step.right <- ifelse(inclusive| fuzz.x, "vh", "hv")
+  step.left <- ifelse(inclusive | use.fuzz, "hv", "vh")
+  step.right <- ifelse(inclusive| use.fuzz, "vh", "hv")
   
   base.theme <- theme_classic() +
     theme(panel.spacing.x = unit(2, "lines"), 
@@ -280,43 +353,134 @@ trianglePlot.poisson.aux <- function(dat.left, dat.right, testv, plot = "left",
 
 # ==========
 
+# CheckPlots:
+# A wrapper for the checkPlot() function that add titles that feature
+# some meaningful statistics on the p-values of interest
+
+# i) varStat = 0 is for testing and direct comparison of variance methods
+
+checkplotWrapper <- function(dat, numSims, numReps, testv, binwidth, varStat = 0){
+  
+  checkPlot.title <- paste0(
+    sprintf("CheckPlot: %s (N = %d, n = %d)",
+            testv, numSims, numReps))
+  
+  checkplot.var <- checkplotStats(dat, binwidth, varStat)
+  var1 <- checkplot.var$var1
+  var2 <- checkplot.var$var2
+  var3 <- checkplot.var$var3
+  
+  checkPlot.subtitle <- case_match(
+    varStat,
+    1 ~ paste0(sprintf("Lambda = %-3d | Bar = %-6.3f", sort(unique(dat$lambda)), var1), collapse = "\n"),
+    2 ~ paste0(sprintf("Lambda = %-3d | Space = %-3.3f", sort(unique(dat$lambda)), var2), collapse = "\n"),
+    3 ~ paste0(sprintf("Lambda = %-3d | CDF = %-3.3f", sort(unique(dat$lambda)), var3), collapse = "\n"),
+    0 ~ paste0(sprintf("Lambda = %-3d | Bar = %-6.3f | Space = %-3.3f | CDF = %-3.3f", sort(unique(dat$lambda)), var1, var2, var3), collapse = "\n") 
+  )  # what if i have (10, 1) is it sorted ... split and facet will return it as sorted, so var is in ascending lambda order
+  
+  checkplot <- checkPlot(dat, breaks = seq(0,1,binwidth), facets = length(unique(dat$lambda))) + 
+    facet_grid(~lambda) + 
+    theme_classic() + 
+    ggtitle(checkPlot.title, subtitle = checkPlot.subtitle) +
+    theme(
+      plot.title = element_text(family = "mono"), 
+      plot.subtitle = element_text(family = "mono"),
+      panel.spacing.x = unit(1, "cm")) # required for aligned titles
+  
+  print(checkplot)
+}
+
+
+checkplotStats <- function(dat, binwidth, varStat = 3){
+  
+  var1 <- NA
+  var2 <- NA
+  var3 <- NA
+  
+  # Naive: relies on visual bars of the checkPlot
+  if (varStat == 1 | varStat == 0){
+    counts <- dat %>%
+      ungroup() %>%
+      mutate(binID = floor(p/binwidth)) %>%
+      count(lambda, binID) %>%
+      tidyr::complete(lambda, binID, fill = list(n = 0))
+    
+    var1 <- counts %>%
+      split(counts$lambda) %>%
+      purrr::map(function(dat.split){
+        var(dat.split$n)
+      })
+  }
+  
+  # Spacing: relies on the spacings of adjacent p-values
+  if (varStat == 2 | varStat == 0){
+    var2 <- dat %>%
+      split(dat$lambda) %>%
+      purrr::map(function(dat.split){
+        pvals <- sort(c(0,dat.split$p,1))
+        gaps <- diff(pvals)
+        var.gaps <- var(length(gaps)*gaps) # (n+1)*(p_{n+1} - p_{n})
+      }) 
+  }
+  
+  # CDF: compares empirical p-value to expected order statistic
+  if (varStat == 3 | varStat == 0){
+    var3 <- dat %>%
+      split(dat$lambda) %>%
+      purrr::map(function(dat.split){
+        dat.split %>% 
+          arrange(p) %>%
+          mutate(rank = rank(p),
+                 ex = rank/(n()+1),
+                 ex.dev2 = (p - ex)^2) %>%
+          pull(ex.dev2) %>%
+          sum()
+      })
+  }
+  
+  return(list("var1" = var1, "var2" = var2, "var3" = var3))
+}
+
+# ==========
+
 # WRAPPER
 
 # Comments:
-# i) The 'family == "poisson"' condition exists for expsanion into more families
+# i) The 'family == "poisson"' condition exists for expansion into more families
 # ii) The default parameters behave for a non-fuzzed approach
 
 trianglePlot <- function(lambdas, numSims = 1e4, numReps = 1, 
                          family = "poisson", testv = "poisson.test",
-                         plot = "both", dat = NULL, fuzz.x = FALSE,
+                         fuzz.type = "supervised", use.fuzz = FALSE,
+                         binwidth = 0.05, varStat = 3,
+                         plot = "both", dat = NULL, 
                          point.mass = TRUE, add.points = FALSE, add.checkplot = FALSE){
   
   if (family == "poisson"){ 
     dat <- generatePoisson(lambdas, dat, numSims, numReps, testv)
+    dat <- fuzzPoisson(dat, testv, fuzz.type, use.fuzz)
     
     if (add.checkplot){
-      dat.temp <- dat
-      
-      if (!fuzz.x) 
-        dat.temp$p <- dat.temp$left.exact
-      
-      checkplot <- checkPlot(dat.temp, facets = length(unique(dat$lambda))) + facet_grid(~lambda)
-      print(checkplot) 
+      checkplotWrapper(dat, numSims, numReps, testv, binwidth, varStat)
     }
     
-    triangle.data <- triangleData.poisson(dat, point.mass, fuzz.x, testv)
-    triangle.plots <- trianglePlot.poisson(triangle.data, testv, plot, 
-                                           fuzz.x, point.mass, add.points)  
     
-    left.plot <- triangle.plots$left.plot
-    right.plot <- triangle.plots$right.plot
-    two.plot <- triangle.plots$two.plot
-    
-    if (!is.null(left.plot)) print(left.plot)
-    if (!is.null(right.plot)) print(right.plot)
-    if (!is.null(two.plot)) print(two.plot)
+    if (plot != "none") { # for checkPlot priority
+      triangle.data <- triangleData.poisson(dat, point.mass, use.fuzz, testv)
+      triangle.plots <- trianglePlot.poisson(triangle.data, testv, plot, 
+                                             use.fuzz, point.mass, add.points)  
+      
+      left.plot <- triangle.plots$left.plot
+      right.plot <- triangle.plots$right.plot
+      two.plot <- triangle.plots$two.plot
+      
+      if (!is.null(left.plot)) print(left.plot)
+      if (!is.null(right.plot)) print(right.plot)
+      if (!is.null(two.plot)) print(two.plot)
+    }
   }
 }
+
 
 # ==========
 
@@ -336,8 +500,8 @@ wald.fuzz <- function(wald.data, filter.zero = FALSE){
   if (filter.zero) wald.data <- wald.data %>% filter(pois.mean > 0)
   
   wald.intervals <- wald.data %>%
-    distinct(lambda, p) %>%
-    arrange(lambda, p) %>%
+    distinct(lambda, pois.mean, p) %>% 
+    arrange(lambda, p) %>% # if you sort based on pois.mean it would be supervised, otherwise arrange on p
     group_by(lambda) %>%
     mutate(
       p.lower = lag(p, default = 0),
@@ -345,8 +509,9 @@ wald.fuzz <- function(wald.data, filter.zero = FALSE){
     ) %>%
     ungroup()
   
+  
   fuzz.df <- wald.data %>% 
-    left_join(wald.intervals, by = c("lambda", "p")) %>%
+    left_join(wald.intervals, by = c("lambda", "p", "pois.mean")) %>% # but joining on pois.mean doesn't invoke supervision
     mutate(rp = runif(n(), min = p.lower, max = p.upper))
   
   return(fuzz.df)
