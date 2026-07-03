@@ -397,7 +397,7 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
   var2 <- NA
   var3 <- NA
   
-  # Naive: relies on visual bars of the checkPlot
+  # stat 1 bins: like the checkPlot
   if (varStat == 1 | varStat == 0){
     counts <- dat %>%
       ungroup() %>%
@@ -412,7 +412,7 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
       })
   }
   
-  # Spacing: relies on the spacings of adjacent p-values
+  # Stat2 Spacing: relies on the spacings of adjacent p-values
   if (varStat == 2 | varStat == 0){
     var2 <- dat %>%
       split(dat$lambda) %>%
@@ -423,7 +423,7 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
       }) 
   }
   
-  # CDF: compares empirical p-value to expected order statistic
+  # Stat3 CDF: compares empirical p-value to expected order statistic
   if (varStat == 3 | varStat == 0){
     var3 <- dat %>%
       split(dat$lambda) %>%

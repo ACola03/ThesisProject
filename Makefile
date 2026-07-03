@@ -20,6 +20,9 @@ Ignore += *_files
 ## This may be how we should do in-outing of P values
 binomTest.Rout: binomTest.R
 
+## AC calculates order statistics 2026 Jul 03 (Fri)
+unifCpStats.Rout: unifCpStats.R trianglePlot_Poisson.R
+
 ######################################################################
 
 Ignore += *.html
