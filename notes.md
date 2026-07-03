@@ -1,5 +1,7 @@
-### **Meeting Notes**
 
+2026 Jul 03 (Fri)
+
+Order-statistic estimators. Currently liking [the WLSE from here](https://arxiv.org/pdf/2107.09316): 
 
 ----------------------------------------------------------------------
 
