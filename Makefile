@@ -15,6 +15,13 @@ Ignore += *_files
 
 ######################################################################
 
+## Naive exploration
+
+## This may be how we should do in-outing of P values
+binomTest.Rout: binomTest.R
+
+######################################################################
+
 Ignore += *.html
 Sources += *.R
 
