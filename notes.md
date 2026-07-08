@@ -1,5 +1,18 @@
 
-2026 Jul 03 (Fri)
+##### 2026 Jul 08 (Wed)
+
+Adam to send link to a nicer version of provisional notes
+
+We have many uniformity statistics:
+* Histogram variance (requires boxing)
+* variance of spaces (analytically nice)
+	* start at 0, end at 1 for n+1 spaces
+* naive location
+* weighted location
+
+The location statistics seem terrible! This is a big surprise and we should probably try to understand it at least for a while. In the meantime, let's go forward with the spacing statistic.
+
+##### 2026 Jul 03 (Fri)
 
 Order-statistic estimators. Currently liking [the WLSE from here](https://arxiv.org/pdf/2107.09316): 
 

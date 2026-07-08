@@ -430,7 +430,7 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
       purrr::map(function(dat.split){
         dat.split %>% 
           arrange(p) %>%
-          mutate(rank = rank(p),
+          mutate(rank = 1:n(),
                  ex = rank/(n()+1),
                  ex.dev2 = (p - ex)^2) %>%
           pull(ex.dev2) %>%
