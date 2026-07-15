@@ -17,7 +17,7 @@ Ignore += *_files
 
 ## Naive exploration
 
-## This may be how we should do in-outing of P values
+## outdated exploration of signing
 binomTest.Rout: binomTest.R
 
 ## Meeting looks at naive location statistic
@@ -25,6 +25,9 @@ nlsMeet.Rout: nlsMeet.R
 
 ## AC calculates order statistics 2026 Jul 03 (Fri)
 unifCpStats.Rout: unifCpStats.R trianglePlot_Poisson.R
+
+## New joint signing thing 2026 Jul 15 (Wed)
+signedBinom.Rout: signedBinom.R
 
 ######################################################################
 
