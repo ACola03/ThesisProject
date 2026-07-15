@@ -432,8 +432,10 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
           arrange(p) %>%
           mutate(rank = 1:n(),
                  ex = rank/(n()+1),
-                 ex.dev2 = (p - ex)^2) %>%
-          pull(ex.dev2) %>%
+                 ex.dev2 = (p - ex)^2,
+                 var = (rank*(n() - rank + 1))/((n()+1)^2*(n()+2)),
+                 stat = ex.dev2 / var) %>% # scaling by the variance now!
+          pull(stat) %>% # if i want the unscaled, just pull(ex.dev2)
           sum()
       })
   }
