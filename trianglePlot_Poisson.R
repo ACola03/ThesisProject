@@ -370,13 +370,14 @@ checkplotWrapper <- function(dat, numSims, numReps, testv, binwidth, varStat = 0
   var2 <- checkplot.var$var2
   var3 <- checkplot.var$var3
   
-  checkPlot.subtitle <- case_match(
-    varStat,
-    1 ~ paste0(sprintf("Lambda = %-3d | Bar = %-6.3f", sort(unique(dat$lambda)), var1), collapse = "\n"),
-    2 ~ paste0(sprintf("Lambda = %-3d | Space = %-3.3f", sort(unique(dat$lambda)), var2), collapse = "\n"),
-    3 ~ paste0(sprintf("Lambda = %-3d | CDF = %-3.3f", sort(unique(dat$lambda)), var3), collapse = "\n"),
-    0 ~ paste0(sprintf("Lambda = %-3d | Bar = %-6.3f | Space = %-3.3f | CDF = %-3.3f", sort(unique(dat$lambda)), var1, var2, var3), collapse = "\n") 
-  )  # what if i have (10, 1) is it sorted ... split and facet will return it as sorted, so var is in ascending lambda order
+  checkPlot.subtitle <- switch(
+    as.character(varStat),
+    "1" = paste0(sprintf("Lambda = %-3d | Bar = %-6.3f", sort(unique(dat$lambda)), var1), collapse = "\n"),
+    "2" = paste0(sprintf("Lambda = %-3d | Space = %-3.3f", sort(unique(dat$lambda)), var2), collapse = "\n"),
+    "3" = paste0(sprintf("Lambda = %-3d | CDF = %-3.3f", sort(unique(dat$lambda)), var3), collapse = "\n"),
+    "0" = paste0(sprintf("Lambda = %-3d | Bar = %-6.3f | Space = %-3.3f | CDF = %-3.3f", sort(unique(dat$lambda)), var1, var2, var3), collapse = "\n"),
+    NULL
+    )  # what if i have (10, 1) is it sorted ... split and facet will return it as sorted, so var is in ascending lambda order
   
   checkplot <- checkPlot(dat, breaks = seq(0,1,binwidth), facets = length(unique(dat$lambda))) + 
     facet_grid(~lambda) + 
@@ -428,15 +429,14 @@ checkplotStats <- function(dat, binwidth, varStat = 3){
     var3 <- dat %>%
       split(dat$lambda) %>%
       purrr::map(function(dat.split){
-        dat.split %>% 
-          arrange(p) %>%
-          mutate(rank = 1:n(),
-                 ex = rank/(n()+1),
-                 ex.dev2 = (p - ex)^2,
-                 var = (rank*(n() - rank + 1))/((n()+1)^2*(n()+2)),
-                 stat = ex.dev2 / var) %>% # scaling by the variance now!
-          pull(stat) %>% # if i want the unscaled, just pull(ex.dev2)
-          sum()
+        n <- nrow(dat.split)
+        pvec <- sort(dat.split$p)
+        lvec <- (1:n)/(n+1)
+        var <- ((1:n)*(n - (1:n) + 1)) / ((n+1)^2*(n+2))
+        sign <- sign(sum(pvec - lvec))
+        sq.err <- (pvec - lvec)^2
+        location <- sign * sum(sq.err/var)
+        return(location) 
       })
   }
   
