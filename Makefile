@@ -29,6 +29,9 @@ unifCpStats.Rout: unifCpStats.R trianglePlot_Poisson.R
 ## New joint signing thing 2026 Jul 15 (Wed)
 signedBinom.Rout: signedBinom.R
 
+## Discussing 2026 Jul 22 (Wed)
+## checkplotStatsDist.R
+
 ######################################################################
 
 Ignore += *.html
