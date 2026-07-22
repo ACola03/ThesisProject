@@ -177,3 +177,14 @@ Start by reading what Roswell wrote about the fuzzing logic. See if you think it
 **Applications:**
 
 -   Not explored, but can be discussed if time permits.
+
+
+##### 2026 Jul 22 (Wed)
+
+Results are interesting but also kind of disappointing. We don't have any test that produces a very tight distribution with 1,000 samples. We had decided to check 2,000 samples and Adam should do that, but it's not likely to help much. 
+
+DTS looks like it's a two sample test. Adam is going to look into whether there's a one-sample state-of-the-art location-based test and if it's equivalent to Anderson-Darling, and implement it.
+
+Give some thought to how you normalize things. We should understand better the behavior of the statistics with respect to little n, the size of the sample. If things are normalized, the mean shouldn't be changing and we should be able to tell if the distribution is getting narrower or not. We had some questions about this bill. Excuse me. We had some questions about this with the location statistic before. 
+
+Also, it kind of seems like a good idea to put equations into the little report. 
