@@ -34,6 +34,7 @@ signedBinom.Rout: signedBinom.R
 
 ## What is up with CvM?
 cvmTest.Rout: cvmTest.R
+cvmPlot.Rout: cvmPlot.R cvmTest.rds
 
 ######################################################################
 
