@@ -35,9 +35,9 @@ sim_ss_over_lambda <- function(lambda, samp, reps){
 	return(df)
 }
 
-lseq <- exp(seq(-3, 1, length.out=21))
+lseq <- exp(seq(-3, 0.5, length.out=35))
 
-out <- sim_ss_over_lambda(lseq, 3, 1e4)
+out <- sim_ss_over_lambda(lseq, 100, 1e4)
 print(out)
 
 rdsSave(out)
