@@ -32,6 +32,9 @@ signedBinom.Rout: signedBinom.R
 ## Discussing 2026 Jul 22 (Wed)
 ## checkplotStatsDist.R
 
+## What is up with CvM?
+cvmTest.Rout: cvmTest.R
+
 ######################################################################
 
 Ignore += *.html

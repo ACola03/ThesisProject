@@ -188,3 +188,8 @@ DTS looks like it's a two sample test. Adam is going to look into whether there'
 Give some thought to how you normalize things. We should understand better the behavior of the statistics with respect to little n, the size of the sample. If things are normalized, the mean shouldn't be changing and we should be able to tell if the distribution is getting narrower or not. We had some questions about this bill. Excuse me. We had some questions about this with the location statistic before. 
 
 Also, it kind of seems like a good idea to put equations for the statistics into the little report. 
+
+##### 2026 Jul 29 (Wed)
+
+Why is CvM not using expected order statistics?
+* https://claude.ai/share/13d39d37-a9ab-4331-9a33-253bf9d72e7b
