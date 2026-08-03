@@ -36,6 +36,9 @@ signedBinom.Rout: signedBinom.R
 cvmTest.Rout: cvmTest.R
 cvmPlot.Rout: cvmPlot.R cvmTest.rds
 
+## Playing with equivalence testing …
+betaFit.Rout: betaFit.R
+
 ######################################################################
 
 Ignore += *.html
