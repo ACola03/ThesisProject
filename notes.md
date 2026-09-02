@@ -1,3 +1,16 @@
+
+##### 2026 Sep 02 (Wed)
+
+We are going to call the idea of looking at 2,000 to 5,000 p-values and seeing and checking the coverage and piano-ness of them an experiment. The idea is that if we're developing or testing statistical methods, we'll want to do experiments like this, and we're trying to probe how well they might work.
+
+Our first step in this direction is to do what we call null experiments. A null experiment is 2,000 to 5,000 (or even 10,000 because they're cheap) p-values that are actually just chosen from a uniform distribution.
+
+One thing we've learned from trying to explore null experiments is that the MLE with Wald is not working reliably for the shape parameter. Jonathan is currently suggesting we treat this attempt to analyze the null experiment as a real experiment. So we can look at 2,000 or 5,000 attempts to analyze the null experiment and make a piano plot of that and do an MLE fit to that. This is why he was saying that all this attempt to figure out the histograms was feeling a little bit meta. 
+
+As a side question, we know how to associate Wald confidence intervals with p-values, but it seems less obvious right now how to associate profile confidence intervals with p-values. We are definitely interested in reanalyzing our null experiments with profile confidence intervals, and figuring out the link to p-values seems like an important step in this. 
+
+We also need to work our way back to coverage. All the work here takes an experiment and looks at all 2000 (or more) p-values and their overall shape. But we've discussed several times in the last few weeks just looking at coverage at the experiment level, meaning what proportion of p-values in each experiment are at the extreme ends, and then at the higher level, asking what proportion of experiments have both their p-values between both of their non-coverage proportions between 2% and 3%? Right? 
+
 **Meeting Notes: August 13th**
 
 1.  coverage simulations: show coverage is between 4 and 6%; test the tail coverage separately, how big do our samples need to be before we expect to reliably have CI between 2 and 3% at each tail
