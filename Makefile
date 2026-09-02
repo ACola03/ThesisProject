@@ -15,6 +15,8 @@ Ignore += *_files
 
 ######################################################################
 
+## betaSlugs.Rout: betaSlugs.R betaSlugs.Rlog
+
 ## Naive exploration
 
 ## outdated exploration of signing
