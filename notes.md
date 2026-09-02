@@ -1,4 +1,24 @@
-**Meeting Notes: July 5th**
+**Meeting Notes: August 13th**
+
+1.  coverage simulations: show coverage is between 4 and 6%; test the tail coverage separately, how big do our samples need to be before we expect to reliably have CI between 2 and 3% at each tail
+2.  slugplots for the mean and shape parameter since they seem uncorrelated
+3.  quantile based intervals are scale independent
+    i.  HD based interval are not scale independent
+    ii. frequentist example of this \^
+    iii. looking at something in two directions is analogous to a HPD with alpha/2 and is scale dependent; looking at something in one direction is analogous to a quantile approach with alpha and is scale independent. If you have 1 day, asking if 2 days or 3 days is far away will always give the same answer regardless of the scale. If you look in two directions instead and ask whether 0.25days or 2 days is farther, the answer now depends on the scale of time or rate.
+4.  misc
+    i.  make the grey dots easier to see for JD
+    ii. put histograms under the contours
+
+Other:
+
+1.  histogram gives more information about coverage
+2.  do coverage in a simpler way using a binomial confidence interval
+3.  how many times we are below 2.5% and above 97.5%
+
+------------------------------------------------------------------------
+
+**Meeting Notes: August 5th**
 
 **Lab Meeting Presentation:**
 
@@ -18,7 +38,7 @@
     iv. There should be an introduction for order statistics on slide 16. Also, the Beta argument should be written under the Space and Location bullets to be more clear.
     v.  Use "drawbacks" instead of "downfalls"
 
-**AD Report:**
+**AD Report: ✓**
 
 1.  Show AD for different Beta
 2.  Confidence value on an AD statistic
@@ -32,14 +52,14 @@
 3.  For empirical, we assume the methodology is conservative, we try to work against that
 4.  In general, we are doing empirical fuzzing - if we do exact fuzzing, we can get exact pianos
 
-**On Statistic Validation (the curves):**
+**On Statistic Validation (the curves): ✓**
 
 1.  CvM for non-small sample sizes
 2.  CvM validity for all shapes
 3.  For a fixed value of the shape ( of 3/(a+b+1) ), is it always minimized for a mean of 0.5
 4.  If we have a shift, maybe we don't really care about a shape of 1 (?)
 
-**Further Testing: Beta MLE**
+**Further Testing: Beta MLE ✓**
 
 1.  Should we be estimating beta parameters? Do an MLE fit of a Beta to a p-value distribution. What parameters are good enough, and how many deviates would it take to say that we are confident that we are in that range.
 2.  Based on the point above, at some point come up with tests that aren't good enough.
