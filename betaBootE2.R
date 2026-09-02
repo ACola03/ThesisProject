@@ -66,7 +66,7 @@ badTests <- function(n, boots, shape1, shape2, type, paraBad){
  
   # plot
   title <- paste0(sprintf("Simulated Parameters of Beta(%.2f, %.2f) \n(n = %d, N = %d)", shape1, shape2, n, boots))
-  plot(x, y, pch = 19, col = "gray50", main = title) # pert points
+  plot(x, y, pch = 19, col = "gray80", main = title) # pert points
   contour(kde, levels = level_cutoff, labels = paste0("Perturbated " , conf.level * 100, "%"), 
           col = "red", lwd = 2, labcex = 1, add = TRUE) # perturbate contour
   contour(kde.load, levels = level_cutoff.load, labels = paste0("Uniform ", conf.level * 100, "%"),
