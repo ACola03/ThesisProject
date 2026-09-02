@@ -4,7 +4,7 @@ library(patchwork)
 library(MASS)
 library(sp)
 source("betaBootF.R")
-source("betaSlugsF.R")
+source("betaSlugFuncs.R")
 
 # default unless otherwise stated
 set.seed(99)
