@@ -83,8 +83,10 @@ showSlugs <- function(param.dat, shape1, shape2, n, boots, alpha = 0.05, use.pro
                        "upper" = if_else(rep(use.profile, param.dat$success_count), param.dat$shape.upper.prof, param.dat$shape.upper.wald))
 
   # slug plots of mean and shape
-  meanPlot <- rangePlot(means, target = 0.5, orderFun = slug, title = "SlugPlot of Mean", targNum = boots/2)
-  shapePlot <- rangePlot(shapes, target = 1, orderFun = slug, title = "SlugPlot of Shape", targNum = boots/2)
+  interval.str <- ifelse(use.profile, "Profile Interval", "Wald Interval")
+  
+  meanPlot <- rangePlot(means, target = 0.5, orderFun = slug, title = paste0("SlugPlot of Mean: ", interval.str), targNum = boots/2)
+  shapePlot <- rangePlot(shapes, target = 1, orderFun = slug, title = paste0("SlugPlot of Shape: ", interval.str), targNum = boots/2)
   
   if (show.subplots){
     meanPlot.left <- rangePlot(means, target = 0.5, orderFun = slug, title = "", targNum = boots/2, subplot.type = "left")
@@ -188,11 +190,6 @@ coveragePlot <- function(coverage.list,
     ggtitle(title)
 }
 
-
-# They are the same!
-coveragePlot(coverage.list, ymin = 0.01, ymax = 0.04, use.interval = TRUE)
-coveragePlot(coverage.list, ymin = 0.01, ymax = 0.04, use.interval = FALSE)
-
 # =====
 
 # META PIANOS
@@ -214,8 +211,6 @@ mle.est <- function(dat){
     trace = FALSE
   )
 }
-
-signif(coef(mle.est(coverage.2000$mean.pval.prof))[["shape"]], 4)
 
 metaPianos <- function(coverage.list, n, show.flag = TRUE) {
   
@@ -276,5 +271,13 @@ metaPianos <- function(coverage.list, n, show.flag = TRUE) {
   
   print(metaPiano)
 }
+
+# ===== Running Functions
+showSlugs(coverage.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE)
+showSlugs(coverage.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = FALSE, show.subplots = TRUE)
+
+# The interval and p-value coverage are the same!
+coveragePlot(coverage.list, ymin = 0.01, ymax = 0.04, use.interval = TRUE)
+coveragePlot(coverage.list, ymin = 0.01, ymax = 0.04, use.interval = FALSE)
 
 metaPianos(coverage.list, 2000)
