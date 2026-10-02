@@ -1,0 +1,909 @@
+---
+title: "Statistical Procedure Analysis: t-test"
+output:
+  pdf_document: default
+  word_document: default
+date: "2026-09-27"
+fontsize: 12pt
+---
+
+This document investigates how a t-test statistic behaves when the underlying data generating process is non-normal with a finite sample. It was proposed to first focus on comparing sample sizes of 10 and 1000 with varying degrees of freedom, mainly 3 and 6. Instead, I decided to use a list of t-distribution sample sizes from $\{5, 10, 50, 100, 500, 1000\}$ to get a more detailed look at what is happening. Each pianoPlot shown below consists of 5000 (inexpensive) simulated p-values of the associated t-test statistic. Under the assumption that the data follows a Normal distribution, the p-value of each statistic is computed according to a $t_{n-1}$ distribution.
+
+Much of our recent pianoPlot validation procedure involved reparameterizing the Beta distribution in terms of mean and shape, and fitting (via MLE) such a distribution to the p-values. However, this procedure assumes that the distribution of p-values is unimodal. However, as you'll observe in the pianoPlots below, this is not the case when we have a small finite sample size. In such cases, the distributions are bimodal, with peaks around 0.12 and 0.88. In the current pipeline, we would compute the MLE estimates and profile intervals with the 5000 p-values, and repeat this process about 5000 times to obtain a large sample of estimates and intervals for the two parameters which we can then construct another set of pianoPlots and slugPlots on. *(I am currently wondering about the possibility of fitting a t-Distribution MLE to each t-test statistic instead of a Beta to the p-values. If this was done, and we only collecting such estimates, I think the main object we'd observe is the slugPlot since we wouldn't have any p-values for analysis?).* Regardless of my current thoughts, it is important to recognize that each pianoPlot shown below is a representation of a single sample p-value distribution of size 2000 that a Beta is fit to (the plots have n = 5000, but my analysis runs n = 2000). From these sample p-value distributions, one may notice that due to the symmetry in the data, the estimated mean parameter will be approximately 0.5, which is what we would expect for uniformity. However, the estimated shape parameter would likely be responsible for flagging non-uniformity (n-shape), even though it is not appropriate to fit such a distribution in this situation.
+
+\newpage
+
+Having said the above, I propose that we revisit the *old* pianoPlot statistics (CvM, AD, ZCvM, ZAD) when the data cannot be described by the Beta family (i.e. bimodal). However, I suspect that the parametric assumption of the Beta MLE approach makes it more powerful in the unimodal cases. When we relax that constraint and extend away from unimodality, the other statistics are the way to go. Regardless, it is reasonable to report the results of both approaches to best detect violations of PIT. Although, one could argue that further analysis is not required based on the pianoPlots I show later on. In response, I have summarized the four methods we have to analyze our pianos:
+
+1.  Coverage: I can just focus on the p-values themself without fitting any MLE and compute the coverage on both ends. However, this only gives me local behavior and even if the coverage is nominal there may possibly be waves on the inner 95% which seems unlikely to me.
+
+2.  Visually: By eye will *always* be a reliable method, but that depends on how many bins are used in a PianoPlot. It should often be supported by other results.
+
+3.  Beta Fit: the Beta MLE definitely isn't the best option in this case. One could attempt to fit a beta mixture of 1 to 2 components, and if 2 components seems optimal then you know something is amiss. However, this will greatly increase computation time.
+
+4.  ECDF Statistics: the ECDF based statistics are likely the best option in this case since we can compute a upper and lower 2.5% quantile of those statistics under a uniform distribution.
+
+\vspace{1.5cm}
+
+**Main Questions:**
+
+1.  **Does the inferential procedure retain its nominal behavior when its distributional assumptions are violated, and how does that behavior change with n?**
+2.  **What is the finite sample behavior of the t-test when its observations come from a heavy-tailed, non-normal distribution?**
+    - I am phrasing it this way since with finite samples, after the data has been generated, it can be difficult to identify the underlying data generating process and its specific t-distribution. It is simpler to use "heavy-tailed, non-normal distribution" instead.
+
+\newpage
+
+### **Simulation Setup:**
+
+The following code, primarily `tDist.asymptotic`, is responsible for generating the sample p-value distributions for the t-test statistic for a specified degrees of freedom (df) and sample size (n). Here, n refers to the number of t-distributed deviates which a single test-statistic is calculated upon. As mentioned previously, each pianoPlot consists of 5000 p-values.
+
+\vspace{1cm}
+
+```{r include=FALSE}
+# LIBRARIES
+library(bbmle)
+library(MASS)
+library(purrr)
+library(patchwork)
+library(dplyr)
+library(checkPlotR)
+library(tidyr)
+library(xtable)
+source("pianoPowerF.R")
+```
+
+```{r}
+tDist.asymptotic <- function(nlist, df, nsim){
+  dat <- map(nlist,.f = function(n){
+    t.data <- matrix(rt(n * nsim, df = df), ncol = nsim)
+    test.statistic <- apply(t.data, MARGIN = 2, 
+                            FUN = function(sim.dat){ 
+                              (mean(sim.dat) - 0)/(sd(sim.dat)/sqrt(n))
+                            })
+    pvals <- pt(test.statistic, df = n - 1)
+    }
+  )
+}
+
+quickPlot <- function(tsim, df, nlist){
+  n <- length(nlist)
+  par(mfrow = c(n/2, 2))
+  for (i in 1:n){
+    title <- sprintf("t-Distribution (df = %s, n = %s)", df, nlist[i])
+    hist(tsim[[i]], breaks = seq(0,1,length.out = 41), main = title)
+  }
+}
+
+
+nlist <- c(5, 10, 50, 100, 500, 1000)
+tsim1 <- tDist.asymptotic(nlist, df = 1, 5000)
+tsim2 <- tDist.asymptotic(nlist, df = 2, 5000)
+tsim3 <- tDist.asymptotic(nlist, df = 3, 5000)
+tsim6 <- tDist.asymptotic(nlist, df = 6, 5000)
+tsim30 <- tDist.asymptotic(nlist, df = 30, 5000)
+```
+
+\newpage
+
+**Degrees of Freedom = 1**
+
+\vspace{1cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+quickPlot(tsim1, 1, nlist)
+```
+
+\newpage
+
+**Degrees of Freedom = 2**
+
+\vspace{1cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+quickPlot(tsim2, 2, nlist)
+```
+
+\newpage
+
+**Degrees of Freedom = 3**
+
+\vspace{1cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+quickPlot(tsim3, 3, nlist)
+```
+
+\newpage
+
+**Degrees of Freedom = 6**
+
+\vspace{1cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+quickPlot(tsim6, 6, nlist)
+```
+
+\newpage
+
+**Degrees of Freedom = 30**
+
+\vspace{1cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+quickPlot(tsim30, 30, nlist)
+```
+
+\newpage
+
+**Discussion:**
+
+One could visually examine the plots below, or increase the grid of n we search across, to provide an estimate or guideline when it may be appropriate to use the test in each setting. I will attempt to do so, however, it is much more informative to support my thoughts with statistics that quantify how uniform they appear.
+
+1.  DF = 1:
+    - There is no defined mean and non-infinite variance. The approximation should never be used, but this is known.
+2.  DF = 2:
+    - There appear to be artefacts of the bimodal distribution still present when n = 1000, making me hesitant to recommend performing a test at this sample size.
+3.  DF = 3:
+    - I would recommend a sample size of at least 100. There still seems to be some bimodality when n = 50.
+4.  DF = 6:
+    - I would recommend a sample size of at least 50. With n = 10, there still appears to be 2 minor peaks. However, this decision was influenced by my prior knowledge of the underlying bimodal issue. Had I not known in advance, I would have likely recommended this sample size.
+5.  DF = 30:
+    1.  I have few to no concerns with this specification. However, with n = 5, the tails do seem to be underrepresented.
+
+Goal: To improve my analysis, I will allow for the computation of the pianoPlot statistics in my pipeline. With this information across `boots` replications, I can get a distribution for these statistics and perform a power analysis as done previously. I should have the distribution for these statistics under the null distribution somewhere (if not I'll just re-run my code).
+
+\newpage
+
+**Sample Usage of Statistics:** For the set of plots above where n = 5, the table below shows that the pianoPlot statistics can be applied to these p-values. Note that the first row is the 95th percentile of the statistic when sampling from a Uniform distribution, and is thus constructed from many pianos. The following rows are statistics from a single piano (shown previously). Although the statistics for the df = 6 case point towards a valid piano, I would be hesitant about such a decision.
+
+```{r eval=FALSE, include=FALSE}
+AD.dist <- zhang.dist(5000, 5000, c(1), c(1), stat = "AD", FALSE)
+ZAD.dist <- zhang.dist(5000, 5000, c(1), c(1), stat = "AD", TRUE)
+CVM.dist <- zhang.dist(5000, 5000, c(1), c(1), stat = "CVM", FALSE)
+ZCVM.dist <- zhang.dist(5000, 5000, c(1), c(1), stat = "CVM", TRUE)
+
+# compute critical values under uniform
+AD.crit <- quantile(AD.dist, probs = 0.95)
+ZAD.crit <- quantile(ZAD.dist, probs = 0.95)
+CVM.crit <- quantile(CVM.dist, probs = 0.95)
+ZCVM.crit <- quantile(ZCVM.dist, probs = 0.95)
+
+# extract data for n = 5
+df1.n5 <- tsim1[[1]]; df2.n5 <- tsim2[[1]]; df3.n5 <- tsim3[[1]]
+df6.n5 <- tsim6[[1]]; df30.n5 <- tsim30[[1]]
+
+# =====
+
+# df = 1
+df1.n5.ad <- zhang.AD(df1.n5, FALSE); df1.n5.zad <- zhang.AD(df1.n5, TRUE)
+df1.n5.cvm <- zhang.CVM(df1.n5, FALSE); df1.n5.zcvm <- zhang.CVM(df1.n5, TRUE)
+
+# df = 2
+df2.n5.ad <- zhang.AD(df2.n5, FALSE); df2.n5.zad <- zhang.AD(df2.n5, TRUE)
+df2.n5.cvm <- zhang.CVM(df2.n5, FALSE); df2.n5.zcvm <- zhang.CVM(df2.n5, TRUE)
+
+# df = 3
+df3.n5.ad <- zhang.AD(df3.n5, FALSE); df3.n5.zad <- zhang.AD(df3.n5, TRUE)
+df3.n5.cvm <- zhang.CVM(df3.n5, FALSE); df3.n5.zcvm <- zhang.CVM(df3.n5, TRUE)
+
+# df = 6
+df6.n5.ad <- zhang.AD(df6.n5, FALSE); df6.n5.zad <- zhang.AD(df6.n5, TRUE)
+df6.n5.cvm <- zhang.CVM(df6.n5, FALSE); df6.n5.zcvm <- zhang.CVM(df6.n5, TRUE)
+
+# df = 30 
+df30.n5.ad <- zhang.AD(df30.n5, FALSE); df30.n5.zad <- zhang.AD(df30.n5, TRUE)
+df30.n5.cvm <- zhang.CVM(df30.n5, FALSE); df30.n5.zcvm <- zhang.CVM(df30.n5, TRUE)
+
+# =====
+
+tab <- data.frame("Dist" = c("Uniform", "t1", "t2", "t3", "t6", "t30"),
+           "AD" = c(AD.crit, df1.n5.ad, df2.n5.ad, df3.n5.ad, df6.n5.ad,df30.n5.ad),
+           "ZAD" = c(ZAD.crit, df1.n5.zad, df2.n5.zad, df3.n5.zad, df6.n5.zad, df30.n5.zad),
+           "CVM" = c(CVM.crit, df1.n5.cvm, df2.n5.cvm, df3.n5.cvm, df6.n5.cvm, df30.n5.cvm),
+           "ZCVM" = c(ZCVM.crit, df1.n5.zcvm, df2.n5.zcvm, df3.n5.zcvm, df6.n5.zcvm, df30.n5.zcvm)
+           )
+```
+
+```{r eval=FALSE, include=FALSE}
+print(xtable(tab))
+```
+
+\vspace{1cm}
+
+\begin{table}[ht]
+\large
+\centering
+\begin{tabular}{lrrrr}
+  \hline
+ Dist & AD & ZAD & CVM & ZCVM \\ 
+  \hline
+Uniform & 2.45 & 3.29 & 0.47 & 38.75 \\ 
+  t1 & 45.64 & 3.36 & 7.48 & 578.11 \\ 
+  t2 & 8.63 & 3.31 & 1.30 & 147.19 \\ 
+  t3 & 5.93 & 3.30 & 0.92 & 132.00 \\ 
+  t6 & 1.68 & 3.29 & 0.27 & 27.97 \\ 
+  t30 & 0.51 & 3.29 & 0.08 & 13.49 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+**Current Pipeline Analysis:**
+
+Although I feel that it isn't appropriate to feed this data into the current pipeline, I was curious about what might occur. Thus, I created slugPlots for the paired cases across $\text{n} = \{10, 1000\}$ and $\text{df} = \{3,6\}$, where each (mean and shape) MLE is computed across 2000 t-test statistic p-values. I've hidden all the simulation code, but the chunk below loads it (takes long to load otherwise) and uses the `showSlugs()` function from `sept25.R` (name to be revised) to plot the slugPlots with the Profile intervals. The Wald intervals are not shown based on previous discussions about their inaccuracies and non-nomnial behavior.
+
+```{r eval=FALSE, include=FALSE}
+# MLE CALCULATIONS: PROFILE
+nll <- function(mean, shape, x) {
+  a <- 2*mean / shape
+  b <- 2*(1 - mean) / shape
+  -sum(dbeta(x, shape1 = a, shape2 = b, log = TRUE))
+}
+
+mle.est <- function(dat){
+  mle2(
+    nll,
+    start = list(mean = 0.5, shape = 1),
+    data = list(x = dat),
+    method = "L-BFGS-B",
+    lower = c(mean = 1e-4, shape = 1e-4),
+    upper = c(mean = 1 - 1e-4, shape = Inf),
+    trace = FALSE
+  )
+}
+
+profileMean <- function(dat){
+  mle2(
+    nll,
+    start = list(shape = 1),
+    fixed = list(mean = 0.5),
+    data = list(x = dat),
+    method = "L-BFGS-B",
+    lower = c(shape = 1e-4),
+    upper = c(shape = Inf)
+  )
+}
+
+profileShape <- function(dat){
+  mle2(
+    nll,
+    start = list(mean = 0.5),
+    fixed = list(shape = 1),
+    data = list(x = dat),
+    method = "L-BFGS-B",
+    lower = c(mean = 1e-4),
+    upper = c(mean = 1 - 1e-4)
+  )
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+# T-DISTRIBUTION SIMULATION: an entire piano of p-values
+tTest.statSim <- function(n.t, n.unif, df = 3){
+  t.data <- matrix(rt(n.t * n.unif, df = df), ncol = n.unif)
+  test.statistic <- apply(t.data, MARGIN = 2, 
+                          FUN = function(sim.dat){ 
+                            (mean(sim.dat) - 0)/(sd(sim.dat)/sqrt(n.t))
+                          })
+  pvals <- pt(test.statistic, df = n.t - 1)
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+# PARAMETRIC BOOTSTRAP
+paraBoot.full <- function(n.unif, boots, sim.dist = "beta", shape1 = 1, shape2 = 1, n.t = 30, df.t = 3, conf = 0.95, meta.calc = FALSE){
+  alphas <- numeric(boots); betas <- numeric(boots)
+  means <- numeric(boots); shapes <- numeric(boots)
+  means.se <- numeric(boots); shapes.se <- numeric(boots)
+  
+  means.lower.wald <- numeric(boots); means.upper.wald <- numeric(boots)
+  means.lower.prof <- numeric(boots); means.upper.prof <- numeric(boots)
+  means.pval.wald <- numeric(boots); means.pval.prof <- numeric(boots); 
+
+  shapes.lower.wald <- numeric(boots); shapes.upper.wald <- numeric(boots)
+  shapes.lower.prof <- numeric(boots); shapes.upper.prof <- numeric(boots)
+  shapes.pval.wald <- numeric(boots); shapes.pval.prof <- numeric(boots); 
+  
+  success_count <- 0; success_flag <- logical(boots)
+  z <- qnorm(1-(1-conf)/2)
+  
+  for (boot in 1:boots){
+    
+    if (sim.dist == "beta"){
+      dat <- rbeta(n.unif, shape1, shape2)
+    } else if (sim.dist == "t"){
+      dat <- tTest.statSim(n.t, n.unif, df.t)
+    }
+    
+    # for convergence failures
+    fit_result <- tryCatch({
+      suppressWarnings({
+        fit <- mle.est(dat)
+        # check if it converged (0 means success)
+        if (fit@details$convergence != 0) stop("Non-zero convergence code")
+        fit
+      })
+    }, error = function(e) {
+      NULL # NULL if fails to converge
+    })
+    
+    # if converged, store the values
+    if (!is.null(fit_result)) {
+      success_count <- success_count + 1; success_flag[boot] <- TRUE # increment successful fits
+      coefs <- coef(fit_result); vcovs <- vcov(fit_result) # extract coefficients and variances
+      pfint <- profile(fit_result); pconf <- confint(pfint) # profile intervals
+      mean <- unname(coefs["mean"]); shape <- unname(coefs["shape"]) # assign coefficients
+      mean.se <- sqrt(vcovs[1,1]); shape.se <- sqrt(vcovs[2,2]) # Wald Std.Err from inverting hessian
+
+      # alpha, beta 
+      alphas[boot] <- 2 * mean / shape
+      betas[boot] <- 2 * (1 - mean) / shape
+      
+      # mean: estimate, stdErr, intervals (wald, profile)
+      means[boot] <- mean; means.se[boot] <- mean.se 
+      means.lower.wald[boot] <- mean-z*mean.se; means.upper.wald[boot] <- mean+z*mean.se
+      means.lower.prof[boot] <- pconf["mean",1]; means.upper.prof[boot] <- pconf["mean",2]
+      
+      # shape: estimate, stdErr, intervals (wald, profile)
+      shapes[boot] <- shape; shapes.se[boot] <- shape.se 
+      shapes.lower.wald[boot] <- shape-z*shape.se; shapes.upper.wald[boot] <- shape+z*shape.se
+      shapes.lower.prof[boot] <- pconf["shape",1]; shapes.upper.prof[boot] <- pconf["shape",2]
+      
+      # meta piano calculations
+      if (meta.calc){
+        # profile p-value
+        restricted.fitMean <- profileMean(dat); restricted.fitShape <- profileShape(dat) 
+        l.global <- logLik(fit_result); l.mean <- logLik(restricted.fitMean); l.shape <- logLik(restricted.fitShape) # likelihoods
+        chi.mean <- 2*(l.global - l.mean); chi.shape <- 2*(l.global - l.shape) # likelihood ratio statistics
+        
+        mean.pval.prof.temp <- pchisq(chi.mean, df = 1, lower.tail = FALSE)/2;
+        means.pval.prof[boot] <- ifelse(mean > 0.5, 1-mean.pval.prof.temp, mean.pval.prof.temp) # profile p-value: check p/2 or 1-p/2
+        
+        shape.pval.prof.temp <- pchisq(chi.shape, df = 1, lower.tail = FALSE)/2 
+        shapes.pval.prof[boot] <- ifelse(shape > 1, 1-shape.pval.prof.temp, shape.pval.prof.temp) # profile p-value: check p/2 or 1-p/2
+        
+        # wald p-value
+        norm.mean <- (mean - 0.5)/mean.se; norm.shape <- (shape - 1)/shape.se # convert to StdNorm   
+        means.pval.wald[boot] <- pnorm(norm.mean); shapes.pval.wald[boot] <- pnorm(norm.shape) # wald p-value
+      }
+    } 
+  }
+  
+  cat(sprintf("Successful fits: %d out of %d (%.1f%%)\n", 
+              success_count, boots, (success_count/boots)*100))
+  
+  # filter out those which didn't converge
+  success_indices <- which(success_flag)
+  results <- list(
+    "mean" = means[success_indices], 
+    "mean.se" =  means.se[success_indices], 
+    "mean.lower.wald" =  means.lower.wald[success_indices], 
+    "mean.upper.wald" =  means.upper.wald[success_indices],
+    "mean.lower.prof" =  means.lower.prof[success_indices],
+    "mean.upper.prof" =  means.upper.prof[success_indices], 
+    "mean.pval.wald" = means.pval.wald[success_indices],
+    "mean.pval.prof" = means.pval.prof[success_indices],
+    "shape" =  shapes[success_indices],
+    "shape.se" =  shapes.se[success_indices], 
+    "shape.lower.wald" =  shapes.lower.wald[success_indices], 
+    "shape.upper.wald" =  shapes.upper.wald[success_indices], 
+    "shape.lower.prof" =  shapes.lower.prof[success_indices], 
+    "shape.upper.prof" =  shapes.upper.prof[success_indices], 
+    "shape.pval.wald" = shapes.pval.wald[success_indices],
+    "shape.pval.prof" = shapes.pval.prof[success_indices],
+    "shape1" =  alphas[success_indices], 
+    "shape2" =  betas[success_indices],
+    "success_count" = success_count
+  )
+  
+  return(results)
+}
+```
+
+```{r eval=FALSE, warning=FALSE, include=FALSE}
+timestamp()
+t.nt10.df3.2000 <- paraBoot.full(n.unif = 2000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE) # 45min
+timestamp()
+
+timestamp()
+t.nt10.df6.2000 <- paraBoot.full(n.unif = 2000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+timestamp()
+
+# -- start
+
+# 1. n.unif = 2000
+timestamp()
+t.nt1000.df3.2000 <- paraBoot.full(n.unif = 2000, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.2000, file = "t.nt1000.df3.2000.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.2000 <- paraBoot.full(n.unif = 2000, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.2000, file = "t.nt1000.df6.2000.rds")
+timestamp()
+
+# 2. n.unif = 1750
+timestamp()
+t.nt10.df3.1750 <- paraBoot.full(n.unif = 1750, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.1750, file = "t.nt10.df3.1750.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.1750 <- paraBoot.full(n.unif = 1750, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.1750, file = "t.nt10.df6.1750.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.1750 <- paraBoot.full(n.unif = 1750, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.1750, file = "t.nt1000.df3.1750.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.1750 <- paraBoot.full(n.unif = 1750, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.1750, file = "t.nt1000.df6.1750.rds")
+timestamp()
+
+# 3. n.unif = 1500
+timestamp()
+t.nt10.df3.1500 <- paraBoot.full(n.unif = 1500, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.1500, file = "t.nt10.df3.1500.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.1500 <- paraBoot.full(n.unif = 1500, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.1500, file = "t.nt10.df6.1500.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.1500 <- paraBoot.full(n.unif = 1500, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.1500, file = "t.nt1000.df3.1500.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.1500 <- paraBoot.full(n.unif = 1500, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.1500, file = "t.nt1000.df6.1500.rds")
+timestamp()
+
+# 4. n.unif = 1250
+timestamp()
+t.nt10.df3.1250 <- paraBoot.full(n.unif = 1250, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.1250, file = "t.nt10.df3.1250.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.1250 <- paraBoot.full(n.unif = 1250, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.1250, file = "t.nt10.df6.1250.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.1250 <- paraBoot.full(n.unif = 1250, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.1250, file = "t.nt1000.df3.1250.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.1250 <- paraBoot.full(n.unif = 1250, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.1250, file = "t.nt1000.df6.1250.rds")
+timestamp()
+
+# 5. n.unif = 1000
+timestamp()
+t.nt10.df3.1000 <- paraBoot.full(n.unif = 1000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.1000, file = "t.nt10.df3.1000.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.1000 <- paraBoot.full(n.unif = 1000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.1000, file = "t.nt10.df6.1000.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.1000 <- paraBoot.full(n.unif = 1000, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.1000, file = "t.nt1000.df3.1000.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.1000 <- paraBoot.full(n.unif = 1000, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.1000, file = "t.nt1000.df6.1000.rds")
+timestamp()
+
+# 6. n.unif = 750
+timestamp()
+t.nt10.df3.750 <- paraBoot.full(n.unif = 750, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.750, file = "t.nt10.df3.750.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.750 <- paraBoot.full(n.unif = 750, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.750, file = "t.nt10.df6.750.rds")
+timestamp()
+
+# start
+
+timestamp()
+t.nt1000.df3.750 <- paraBoot.full(n.unif = 750, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.750, file = "t.nt1000.df3.750.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.750 <- paraBoot.full(n.unif = 750, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.750, file = "t.nt1000.df6.750.rds")
+timestamp()
+
+# 7. n.unif = 500
+timestamp()
+t.nt10.df3.500 <- paraBoot.full(n.unif = 500, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.500, file = "t.nt10.df3.500.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.500 <- paraBoot.full(n.unif = 500, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.500, file = "t.nt10.df6.500.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.500 <- paraBoot.full(n.unif = 500, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.500, file = "t.nt1000.df3.500.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.500 <- paraBoot.full(n.unif = 500, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.500, file = "t.nt1000.df6.500.rds")
+timestamp()
+
+# 8. n.unif = 250
+timestamp()
+t.nt10.df3.250 <- paraBoot.full(n.unif = 250, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.250, file = "t.nt10.df3.250.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.250 <- paraBoot.full(n.unif = 250, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.250, file = "t.nt10.df6.250.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df3.250 <- paraBoot.full(n.unif = 250, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt1000.df3.250, file = "t.nt1000.df3.250.rds")
+timestamp()
+
+timestamp()
+t.nt1000.df6.250 <- paraBoot.full(n.unif = 250, boots = 5000, sim.dist = "t", n.t = 1000, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt1000.df6.250, file = "t.nt1000.df6.250.rds")
+timestamp()
+
+# --
+# nt = 10; profile
+showSlugs(t.nt10.df3.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE)
+showSlugs(t.nt10.df6.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE)
+
+# --
+# nt = 10; wald
+showSlugs(t.nt10.df3.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = FALSE, show.subplots = TRUE)
+showSlugs(t.nt10.df6.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = FALSE, show.subplots = TRUE)
+
+# --
+# nt = 1000; profile
+showSlugs(t.nt1000.df3.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE)
+showSlugs(t.nt1000.df6.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE)
+
+# --
+# nt = 1000; wald
+showSlugs(t.nt1000.df3.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = FALSE, show.subplots = TRUE)
+showSlugs(t.nt1000.df6.2000, shape1 = 1, shape2 = 1, n = 2000, boots = 5e3, alpha = 0.05, use.profile = FALSE, show.subplots = TRUE)
+```
+
+```{r include=FALSE}
+rangePlot <- function(tf
+                      , target = "sampleMean"
+                      , orderFun = slug
+                      , conf = 0.95
+                      , subplot.type = "full"
+                      , opacity = 0.2
+                      , size = 0.1
+                      , title = "Range plot"
+                      , targNum = 1e3){
+  if(target == "sampleMean"){
+    target <- mean(tf$est)
+  }
+  
+  thinner <- max(floor(length(tf$est)/targNum), 1) # is this reducing the # of CIs plotted
+  thinned <- tf[seq(thinner, length(tf$est), thinner),]
+  plot.data <- orderFun(thinned)
+  
+  if (subplot.type == "left"){
+    plot.data <- plot.data |> filter(quantile <= 0.05)
+    breaks <- seq(0, 0.05, 0.01)
+    xintercept <- c((1 - conf)/2)
+    x_lab <- NULL; y_lab <- NULL; plot_title <- NULL
+  } else if (subplot.type == "right"){
+    plot.data <- plot.data |> filter(quantile >= 0.95)
+    breaks <- seq(0.95, 1, 0.01)
+    xintercept <- c(1 - (1 - conf)/2)
+    x_lab <- NULL; y_lab <- NULL; plot_title <- NULL
+  } else if (subplot.type == "full"){
+    breaks <- c((1 - conf)/2, 0.25, 0.5, 0.75, conf + (1 - conf)/2)
+    xintercept <- c((1 - conf)/2, 1 - (1 - conf)/2)
+    x_lab <- "Quantile"; y_lab <- "Estimate"; plot_title <- title
+  }
+  
+  slugPlot <- ggplot(plot.data, 
+                      aes(x = quantile, y = est, ymin = lower, ymax = upper)) + 
+    geom_pointrange(alpha = opacity, size = size, 
+                    aes(color = ifelse(lower > target | upper < target, "red", "grey"))) +
+    geom_hline(yintercept = target, color = "blue") +
+    geom_vline(xintercept = xintercept,
+               lty = 2, col = "red") +
+    scale_x_continuous(expand = c(0,0.0005)
+                       , breaks = breaks
+                       , labels = function(breaks){signif(breaks, 3)}) + 
+    scale_color_manual(values = c("grey" = "grey", "red" = "red")) +
+    ggtitle(plot_title) +
+    xlab(x_lab) +
+    ylab(y_lab) +
+    guides(color = "none") +
+    theme_classic()
+
+  return(slugPlot)
+}
+
+showSlugs <- function(param.dat, shape1, shape2, n, boots, alpha = 0.05, use.profile = TRUE, show.subplots = TRUE){
+
+  # extract mean and shape data (wald or profile)
+  means <- data.frame("est" = param.dat$mean, 
+                      "lower" = if_else(rep(use.profile, param.dat$success_count), param.dat$mean.lower.prof, param.dat$mean.lower.wald),  
+                      "upper" = if_else(rep(use.profile, param.dat$success_count), param.dat$mean.upper.prof, param.dat$mean.upper.wald))
+  shapes <- data.frame("est" = param.dat$shape, 
+                       "lower" = if_else(rep(use.profile, param.dat$success_count), param.dat$shape.lower.prof, param.dat$shape.lower.wald),
+                       "upper" = if_else(rep(use.profile, param.dat$success_count), param.dat$shape.upper.prof, param.dat$shape.upper.wald))
+
+  # slug plots of mean and shape
+  interval.str <- ifelse(use.profile, "Profile Interval", "Wald Interval")
+  
+  meanPlot <- rangePlot(means, target = 0.5, orderFun = slug, title = paste0("SlugPlot of Mean: ", interval.str), targNum = boots/2)
+  shapePlot <- rangePlot(shapes, target = 1, orderFun = slug, title = paste0("SlugPlot of Shape: ", interval.str), targNum = boots/2)
+  
+  if (show.subplots){
+    meanPlot.left <- rangePlot(means, target = 0.5, orderFun = slug, title = "", targNum = boots/2, subplot.type = "left")
+    meanPlot.right <- rangePlot(means, target = 0.5, orderFun = slug, title = "", targNum = boots/2, subplot.type = "right")
+    meanPlot <- meanPlot / (meanPlot.left + meanPlot.right) + plot_layout(heights = c(4, 2))
+    
+    shapePlot.left <- rangePlot(shapes, target = 1, orderFun = slug, title = "", targNum = boots/2, subplot.type = "left")
+    shapePlot.right <- rangePlot(shapes, target = 1, orderFun = slug, title = "", targNum = boots/2, subplot.type = "right")
+    shapePlot <- shapePlot / (shapePlot.left + shapePlot.right) + plot_layout(heights = c(4, 2))
+  }
+  
+  return(c(meanPlot, shapePlot))
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+emily <- mle.est(tsim[[1]])
+hist(rbeta(1e5, a,b), breaks = seq(0,1,length.out = 41))
+m <- coef(emily)[["mean"]]; s <- coef(emily)[["shape"]]
+a <- 2*m/s; b <- 2/s - a
+```
+
+```{r echo=TRUE, fig.height=10, fig.width=8}
+# Load Data
+t.nt10.df3.2000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.2000.rds")
+t.nt10.df6.2000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.2000.rds")
+t.nt1000.df3.2000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.2000.rds")
+t.nt1000.df6.2000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.2000.rds")
+
+# Slugs
+plt1 <- showSlugs(t.nt10.df3.2000, shape1 = 1, shape2 = 1, n = 2000, 
+                  boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                  show.subplots = TRUE)
+plt2 <- showSlugs(t.nt10.df6.2000, shape1 = 1, shape2 = 1, n = 2000, 
+                  boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                  show.subplots = TRUE)
+plt3 <- showSlugs(t.nt1000.df3.2000, shape1 = 1, shape2 = 1, n = 2000, 
+                  boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                  show.subplots = TRUE)
+plt4 <- showSlugs(t.nt1000.df6.2000, shape1 = 1, shape2 = 1, n = 2000, 
+                  boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                  show.subplots = TRUE)
+```
+
+```{r include=FALSE}
+t.nt10.df3.250 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.250.rds")
+t.nt10.df6.250 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.250.rds")
+t.nt1000.df3.250 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.250.rds")
+t.nt1000.df6.250 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.250.rds")
+
+t.nt10.df3.500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.500.rds")
+t.nt10.df6.500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.500.rds")
+t.nt1000.df3.500 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.500.rds")
+t.nt1000.df6.500 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.500.rds")
+
+t.nt10.df3.750 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.750.rds")
+t.nt10.df6.750 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.750.rds")
+t.nt1000.df3.750 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.750.rds")
+t.nt1000.df6.750 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.750.rds")
+
+t.nt10.df3.1000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.1000.rds")
+t.nt10.df6.1000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1000.rds")
+t.nt1000.df3.1000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.1000.rds")
+t.nt1000.df6.1000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.1000.rds")
+
+t.nt10.df3.1250 <- readRDS(file = "t.nt10.df3.1250.rds")
+t.nt10.df6.1250 <- readRDS(file = "t.nt10.df6.1250.rds")
+t.nt1000.df3.1250 <- readRDS(file = "t.nt1000.df3.1250.rds")
+t.nt1000.df6.1250 <- readRDS(file = "t.nt1000.df6.1250.rds")
+
+t.nt10.df3.1500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.1500.rds")
+t.nt10.df6.1500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1500.rds")
+t.nt1000.df3.1500 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.1500.rds")
+t.nt1000.df6.1500 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.1500.rds")
+
+t.nt10.df3.1750 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.1750.rds")
+t.nt10.df6.1750 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1750.rds")
+t.nt1000.df3.1750 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.1750.rds")
+t.nt1000.df6.1750 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.1750.rds")
+```
+
+\newpage
+
+**Configuration: df = 3, nt = 10**
+
+```{r fig.height=8, fig.width=7}
+wrap_plots(plt1[[1]], plt1[[2]], ncol = 1)
+```
+
+\newpage
+
+**Configuration: df = 6, nt = 10**
+
+```{r fig.height=8, fig.width=7}
+wrap_plots(plt2[[1]], plt2[[2]], ncol = 1)
+```
+
+\newpage
+
+**Configuration: df = 3, nt = 1000**
+
+```{r fig.height=8, fig.width=7}
+wrap_plots(plt3[[1]], plt3[[2]], ncol = 1)
+```
+
+\newpage
+
+**Configuration: df = 6, nt = 1000**
+
+```{r fig.height=8, fig.width=7}
+wrap_plots(plt4[[1]], plt4[[2]], ncol = 1)
+```
+
+\newpage
+
+**Coverage Plot:** by number of statistics in a single piano
+
+I had previously shown this kind of plot in an earlier meeting so I thought I may as well include it. I don't know whether it is super necessary to have, mainly because it is a little weird to limit how many p-values we are analyzing. Regardless, the plots below summarize their slugPlots by upper and lower tail coverage, as we increase the number of p-values that the Beta MLE is fit upon.
+
+```{r include=FALSE}
+coveragePlot <- function(coverage.list,
+                         title = "Interval Coverage Analysis: Wald vs Profile", 
+                         ymin = 0, ymax = 0.05, use.interval = TRUE){
+  
+  coverage.dat <- imap(coverage.list, .f = function(x, name){
+    
+    # Confidence Intervals: 
+    mean.prof.interval.low <- mean(x$mean.upper.prof <= 0.5); mean.prof.interval.high <- mean(x$mean.lower.prof >= 0.5)
+    mean.wald.interval.low <- mean(x$mean.upper.wald <= 0.5); mean.wald.interval.high <- mean(x$mean.lower.wald >= 0.5)
+    shape.prof.interval.low <- mean(x$shape.upper.prof <= 1); shape.prof.interval.high <- mean(x$shape.lower.prof >= 1)
+    shape.wald.interval.low <- mean(x$shape.upper.wald <= 1); shape.wald.interval.high <- mean(x$shape.lower.wald >= 1)
+    
+    # P-values:
+    mean.prof.pval.low <- mean(x$mean.pval.prof <= 0.025); mean.prof.pval.high <- mean(x$mean.pval.prof >= 0.975)
+    mean.wald.pval.low <- mean(x$mean.pval.wald <= 0.025); mean.wald.pval.high <- mean(x$mean.pval.wald >= 0.975)
+    shape.prof.pval.low <- mean(x$shape.pval.prof <= 0.025); shape.prof.pval.high <- mean(x$shape.pval.prof >= 0.975)
+    shape.wald.pval.low <- mean(x$shape.pval.wald <= 0.025); shape.wald.pval.high <- mean(x$shape.pval.wald >= 0.975)
+    
+    # Dataframe:
+    mean.df <- data.frame(n = as.integer(name), "parameter" = "mean", 
+                          "prof.interval.low" = mean.prof.interval.low, "prof.interval.high" = mean.prof.interval.high,
+                          "wald.interval.low" = mean.wald.interval.low, "wald.interval.high" = mean.wald.interval.high,
+                          "prof.pval.low" = mean.prof.pval.low, "prof.pval.high" = mean.prof.pval.high,
+                          "wald.pval.low" = mean.wald.pval.low, "wald.pval.high" = mean.wald.pval.high)
+    
+    shape.df <- data.frame(n = as.integer(name), "parameter" = "shape", 
+                           "prof.interval.low" = shape.prof.interval.low, "prof.interval.high" = shape.prof.interval.high,
+                           "wald.interval.low" = shape.wald.interval.low, "wald.interval.high" = shape.wald.interval.high,
+                           "prof.pval.low" = shape.prof.pval.low, "prof.pval.high" = shape.prof.pval.high,
+                           "wald.pval.low" = shape.wald.pval.low, "wald.pval.high" = shape.wald.pval.high)
+    
+    rbind(mean.df, shape.df)
+    }
+  )
+  
+  coverage.dat <- tibble(do.call(rbind, coverage.dat))
+  row.names(coverage.dat) <- NULL
+  
+  if (use.interval){ 
+    coverage.dat_long <- coverage.dat %>%
+      pivot_longer(
+        cols = c(wald.interval.low, wald.interval.high, prof.interval.low, prof.interval.high),
+        names_to = c("method", "metric", "direction"),
+        names_sep = "\\.",
+        values_to = "rate"
+      )
+  } else {
+    coverage.dat_long <- coverage.dat %>%
+      pivot_longer(
+        cols = c(wald.pval.low, wald.pval.high, prof.pval.low, prof.pval.high),
+        names_to = c("method", "metric", "direction"),
+        names_sep = "\\.",
+        values_to = "rate"
+      )
+  }
+  
+  ggplot(data = coverage.dat_long, aes(x = n, y = rate, color = direction, linetype = method)) +
+    geom_point() +
+    geom_line() +
+    geom_hline(yintercept = c(0.02, 0.03), linetype = "dashed") +
+    ylim(c(ymin, ymax)) +
+    facet_wrap(~parameter, nrow = 2) +
+    theme_minimal() +
+    labs(
+      y = "Coverage / Tail Rate",
+      color = "Direction",
+      linetype = "Method"
+    ) + 
+    ggtitle(title)
+}
+```
+
+```{r echo=TRUE}
+coverage.list.nt10.df3 <- list("250" = t.nt10.df3.250, "500" = t.nt10.df3.500,
+                               "750" = t.nt10.df3.750, "1000" = t.nt10.df3.1000, 
+                               "1250" = t.nt10.df3.1250, "1500" = t.nt10.df3.1500,
+                               "1750" = t.nt10.df3.1750, "2000" = t.nt10.df3.2000)
+
+coverage.list.nt10.df6 <- list("250" = t.nt10.df6.250, "500" = t.nt10.df6.500, 
+                            "750" = t.nt10.df6.750, "1000" = t.nt10.df6.1000,
+                            "1250" = t.nt10.df6.1250, "1500" = t.nt10.df6.1500,
+                            "1750" = t.nt10.df6.1750, t.nt10.df6.2000)
+
+coverage.list.nt1000.df3 <- list("250" = t.nt1000.df3.250, "500" = t.nt1000.df3.500, 
+                              "750" = t.nt1000.df3.750, "1000" = t.nt1000.df3.1000,
+                              "1250" = t.nt1000.df3.1250, "1500" = t.nt1000.df3.1500,
+                              "1750" = t.nt1000.df3.1750, "2000" = t.nt1000.df3.2000)
+
+coverage.list.nt1000.df6 <- list("250" = t.nt1000.df6.250, "500" = t.nt1000.df6.500, 
+                              "750" = t.nt1000.df6.750, "1000" =  t.nt1000.df6.1000, 
+                              "1250" = t.nt1000.df6.1250, "1500" = t.nt1000.df6.1500,
+                              "1750" = t.nt1000.df6.1750, "2000" = t.nt1000.df6.2000)
+```
+
+\newpage
+
+**Configuration: df = 3, nt = 10**
+
+```{r fig.height=8, fig.width=7, warning=FALSE}
+coveragePlot(coverage.list.nt10.df3, ymin = 0.00, ymax = 0.06, use.interval = TRUE)
+```
+
+\newpage
+
+**Configuration: df = 6, nt = 10**
+
+```{r fig.height=8, fig.width=7, warning=FALSE}
+coveragePlot(coverage.list.nt10.df6, ymin = 0.00, ymax = 0.06, use.interval = TRUE)
+```
+
+\newpage
+
+**Configuration: df = 3, nt = 1000**
+
+```{r fig.height=8, fig.width=7, warning=FALSE}
+coveragePlot(coverage.list.nt1000.df3, ymin = 0.00, ymax = 0.06, use.interval = TRUE)
+```
+
+\newpage
+
+**Configuration: df = 6, nt = 1000**
+
+```{r fig.height=8, fig.width=7, warning=FALSE}
+coveragePlot(coverage.list.nt1000.df6, ymin = 0.00, ymax = 0.06, use.interval = TRUE)
+```
