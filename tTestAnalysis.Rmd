@@ -1,0 +1,197 @@
+---
+title: "tTestAnalysis"
+output: html_document
+date: "2026-10-08"
+---
+
+```{r}
+library(bbmle)
+library(MASS)
+library(purrr)
+library(patchwork)
+library(dplyr)
+library(checkPlotR)
+library(tidyr)
+library(xtable)
+source("tTestAnalysis_Fun.R")
+```
+
+
+```{r eval=FALSE}
+# Call the functions
+for (n.pval in c(500, 1000, 2000, 3000, 5000, 7500, 10000)){
+  timestamp()
+  tAnalysis <- zhang.dist(
+    n.pianos = 1000,
+    n.pvals = n.pval,
+    n.ts = c(10, 50, 100, 250, 500, 1000),
+    df.ts = c(2, 3, 6, 10, 30)
+  )
+  
+  fileName <- paste0("tAnalysis.",n.pval,".rds")
+  saveRDS(tAnalysis, fileName)
+}
+```
+
+```{r}
+# Load the data
+tAnalysis.500 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.500.rds")
+tAnalysis.1000 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.1000.rds")
+tAnalysis.2000 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.2000.rds")
+tAnalysis.3000 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.3000.rds")
+tAnalysis.5000 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.5000.rds")
+tAnalysis.7500 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.7500.rds")
+tAnalysis.10000 <- readRDS("rdsFiles/tdist/pianoStats/tAnalysis.10000.rds")
+tAnalysis.list <- list("500" = tAnalysis.500, "1000" = tAnalysis.1000,
+                       "2000" = tAnalysis.2000, "3000" = tAnalysis.3000,
+                       "5000" = tAnalysis.5000, "7500" = tAnalysis.7500,
+                       "10000" = tAnalysis.10000)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Sample Usage
+tAnalysis <- readRDS("tAnalysis.5000.rds")
+AD <- tAnalysis$AD; ZAD <- tAnalysis$ZAD
+CVM <- tAnalysis$CVM; ZCVM <- tAnalysis$ZCVM
+
+AD.b10 <- quantile(AD$`Normal(n = 10)`, probs = 0.95)
+AD.n10.df2 <- AD$`t(n = 10, df = 2)`
+AD.n10.df3 <- AD$`t(n = 10, df = 3)`
+AD.n10.df6 <- AD$`t(n = 10, df = 6)`
+AD.n10.df10 <- AD$`t(n = 10, df = 10)`
+
+mean(AD.n10.df2 > AD.b10)
+mean(AD.n10.df3 > AD.b10)
+mean(AD.n10.df6 > AD.b10)
+mean(AD.n10.df10 > AD.b10)
+
+# ---
+
+AD.b50 <- quantile(AD$`Normal(n = 50)`, probs = 0.95)
+AD.n50.df2 <- AD$`t(n = 50, df = 2)`
+AD.n50.df3 <- AD$`t(n = 50, df = 3)`
+AD.n50.df6 <- AD$`t(n = 50, df = 6)`
+AD.n50.df10 <- AD$`t(n = 50, df = 10)`
+
+mean(AD.n50.df2 > AD.b50)
+mean(AD.n50.df3 > AD.b50)
+mean(AD.n50.df6 > AD.b50)
+mean(AD.n50.df10 > AD.b50)
+
+# --- 
+
+AD.b100 <- quantile(AD$`Normal(n = 100)`, probs = 0.95)
+AD.n100.df2 <- AD$`t(n = 100, df = 2)`
+AD.n100.df3 <- AD$`t(n = 100, df = 3)`
+AD.n100.df6 <- AD$`t(n = 100, df = 6)`
+AD.n100.df10 <- AD$`t(n = 100, df = 10)`
+
+mean(AD.n100.df2 > AD.b100)
+mean(AD.n100.df3 > AD.b100)
+mean(AD.n100.df6 > AD.b100)
+mean(AD.n100.df10 > AD.b100)
+```
+
+```{r}
+powerPlot <- function(data, fix.name, fix.val, piano.stat, alpha){
+  #  Extract data for chosen stat
+  names.pvals <- names(data) # all values of n.pval
+  names.tests <- names(data[[1]]$AD)# all test cases (n, df)
+  
+  allStat <- vector("list", length(names.pvals))
+  names(allStat) <- names.pvals
+  
+  for (n.pval in names.pvals){
+    n.pval.data <-  data[[n.pval]]
+    stat.data <- n.pval.data[[piano.stat]]
+    
+    if (fix.name == "df"){
+      # define the regex
+      alts.pattern <- paste0("df =\\s", fix.val, "\\b")
+      nulls.pattern <- paste0("Normal")
+      
+      } else if (fix.name == "nt"){
+        # define the regex
+        alts.pattern <- paste0("t\\(n = ", fix.val, ",")
+        nulls.pattern <- paste0("Normal\\(n = ", fix.val, "\\)")
+    }
+    
+    
+    # extract the data based on the regex
+    alts.data <- stat.data[grepl(alts.pattern, names.tests)]
+    nulls.data <- stat.data[grepl(nulls.pattern, names.tests)]
+    
+    #print(names(alts.data))
+    
+    # get Normal baselines
+    baselines <- unname(apply(do.call(cbind, nulls.data), 2, FUN = function(x){quantile(x, probs = 0.95)}))
+
+    # compute powers
+    powers <- colMeans(sweep(do.call(cbind, alts.data), 2, STATS = baselines, FUN = `>`))
+    allStat[[n.pval]] <- powers 
+  }
+  
+  # prepare tibble
+  tableStat <- do.call(rbind, allStat)
+  rownames(tableStat) <- NULL
+  tableStat.tbl <- as_tibble(tableStat) |> 
+    mutate(n.pvals = as.numeric(names.pvals), .before = 1) |>
+    pivot_longer(cols = -c(n.pvals), names_to = "config", values_to = "power") |>
+    mutate(power = as.numeric(power), 
+           n.pvals = as.numeric(n.pvals),
+           config = factor(config, levels = names(alts.data)))
+  
+  # plot data
+  title <- paste0(fix.name, "=", fix.val, ": ", piano.stat, " Statistic")
+  plot <- ggplot(data = tableStat.tbl, aes(x = n.pvals, y = power, color = config)) + 
+    geom_line() +
+    geom_point() +
+    theme_minimal() + 
+    ggtitle(title) +
+    ylim(0,1)
+  
+  return(plot)
+}
+```
+
+\newpage
+
+```{r fig.height=8, fig.width=7}
+# Sample Usage: fix df = 3
+ZAD.plot.df3 <- powerPlot(tAnalysis.list, "df", 3, "ZAD", 0.05)
+ZCVM.plot.df3 <- powerPlot(tAnalysis.list, "df", 3, "ZCVM", 0.05)
+
+ZAD.plot.df3 / ZCVM.plot.df3
+```
+
+\newpage
+
+```{r fig.height=8, fig.width=7}
+# Sample Usage: fix df = 6
+ZAD.plot.df6 <- powerPlot(tAnalysis.list, "df", 6, "ZAD", 0.05)
+ZCVM.plot.df6 <- powerPlot(tAnalysis.list, "df", 6, "ZCVM", 0.05)
+
+ZAD.plot.df6 / ZCVM.plot.df6
+```
+
+\newpage
+
+```{r fig.height=8, fig.width=7}
+# Sample Usage: fix nt = 10
+ZAD.plot.nt10 <- powerPlot(tAnalysis.list, "nt", 10, "ZAD", 0.05)
+ZCVM.plot.nt10 <- powerPlot(tAnalysis.list, "nt", 10, "ZCVM", 0.05)
+
+ZAD.plot.nt10 / ZCVM.plot.nt10
+```
+\newpage
+
+```{r r fig.height=8, fig.width=7}
+# Sample Usage: fix nt = 10000
+ZAD.plot.nt1000 <- powerPlot(tAnalysis.list, "nt", 1000, "ZAD", 0.05)
+ZCVM.plot.nt1000 <- powerPlot(tAnalysis.list, "nt", 1000, "ZCVM", 0.05)
+
+ZAD.plot.nt1000 / ZCVM.plot.nt1000
+```
+
+
+
