@@ -402,6 +402,44 @@ paraBoot.full <- function(n.unif, boots, sim.dist = "beta", shape1 = 1, shape2 =
 ```
 
 ```{r eval=FALSE, warning=FALSE, include=FALSE}
+
+timestamp()
+t.nt10.df3.5000 <- paraBoot.full(n.unif = 5000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE) # 45min
+saveRDS(t.nt10.df3.5000, file = "t.nt10.df3.5000.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.5000 <- paraBoot.full(n.unif = 5000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.5000, file = "t.nt10.df6.5000.rds")
+timestamp()
+
+timestamp()
+t.nt10.df3.10000 <- paraBoot.full(n.unif = 10000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE) # 45min
+saveRDS(t.nt10.df3.10000, file = "t.nt10.df3.10000.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.10000 <- paraBoot.full(n.unif = 10000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.10000, file = "t.nt10.df6.10000.rds")
+timestamp()
+
+
+# --- new
+
+timestamp()
+t.nt10.df3.45000 <- paraBoot.full(n.unif = 45000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE)
+saveRDS(t.nt10.df3.45000, file = "t.nt10.df3.45000.rds")
+timestamp()
+
+timestamp()
+t.nt10.df6.45000 <- paraBoot.full(n.unif = 45000, boots = 2500, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+saveRDS(t.nt10.df6.45000, file = "t.nt10.df6.45000.rds")
+timestamp()
+
+v <- paraBoot.full(n.unif = 45000, boots = 1, sim.dist = "t", n.t = 10, df.t = 6, meta.calc = FALSE)
+
+# =====
+
 timestamp()
 t.nt10.df3.2000 <- paraBoot.full(n.unif = 2000, boots = 5000, sim.dist = "t", n.t = 10, df.t = 3, meta.calc = FALSE) # 45min
 timestamp()
@@ -678,10 +716,12 @@ showSlugs <- function(param.dat, shape1, shape2, n, boots, alpha = 0.05, use.pro
 ```
 
 ```{r eval=FALSE, include=FALSE}
-emily <- mle.est(tsim[[1]])
-hist(rbeta(1e5, a,b), breaks = seq(0,1,length.out = 41))
-m <- coef(emily)[["mean"]]; s <- coef(emily)[["shape"]]
+#emily <- mle.est(tsim[[1]])
+#hist(rbeta(1e5, a,b), breaks = seq(0,1,length.out = 41))
+#m <- coef(emily)[["mean"]]; s <- coef(emily)[["shape"]]
+s <-  0.9703733; m <- 0.500372
 a <- 2*m/s; b <- 2/s - a
+hist(rbeta(5e4,a,b))
 ```
 
 ```{r echo=TRUE, fig.height=10, fig.width=8}
@@ -690,6 +730,7 @@ t.nt10.df3.2000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.2000.rds")
 t.nt10.df6.2000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.2000.rds")
 t.nt1000.df3.2000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.2000.rds")
 t.nt1000.df6.2000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.2000.rds")
+t.nt10.df3.45000 <- readRDS(file = "t.nt10.df3.45000.rds")
 
 # Slugs
 plt1 <- showSlugs(t.nt10.df3.2000, shape1 = 1, shape2 = 1, n = 2000, 
@@ -704,6 +745,38 @@ plt3 <- showSlugs(t.nt1000.df3.2000, shape1 = 1, shape2 = 1, n = 2000,
 plt4 <- showSlugs(t.nt1000.df6.2000, shape1 = 1, shape2 = 1, n = 2000, 
                   boots = 5e3, alpha = 0.05, use.profile = TRUE, 
                   show.subplots = TRUE)
+
+plt.more1 <- showSlugs(t.nt10.df3.5000, shape1 = 1, shape2 = 1, n = 5000, 
+                  boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                  show.subplots = TRUE)
+
+plt.more2 <- showSlugs(t.nt10.df3.10000, shape1 = 1, shape2 = 1, n = 5000, 
+                       boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+
+plt.more3 <- showSlugs(t.nt10.df6.5000, shape1 = 1, shape2 = 1, n = 10000, 
+                       boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+
+plt.more4 <- showSlugs(t.nt10.df6.10000, shape1 = 1, shape2 = 1, n = 10000, 
+                       boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+
+plt.more5 <- showSlugs(t.nt10.df3.45000, shape1 = 1, shape2 = 1, n = 45000, 
+                       boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+
+plt.more1
+plt.more2
+
+plt.more3
+plt.more4
+
+plt.more5
+
+showSlugs(t.nt10.df6.45000, shape1 = 1, shape2 = 1, n = 45000, 
+                       boots = 2.5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
 ```
 
 ```{r include=FALSE}
@@ -727,10 +800,10 @@ t.nt10.df6.1000 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1000.rds")
 t.nt1000.df3.1000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.1000.rds")
 t.nt1000.df6.1000 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.1000.rds")
 
-t.nt10.df3.1250 <- readRDS(file = "t.nt10.df3.1250.rds")
-t.nt10.df6.1250 <- readRDS(file = "t.nt10.df6.1250.rds")
-t.nt1000.df3.1250 <- readRDS(file = "t.nt1000.df3.1250.rds")
-t.nt1000.df6.1250 <- readRDS(file = "t.nt1000.df6.1250.rds")
+t.nt10.df3.1250 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.1250.rds")
+t.nt10.df6.1250 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1250.rds")
+t.nt1000.df3.1250 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df3.1250.rds")
+t.nt1000.df6.1250 <- readRDS(file = "rdsFiles/tdist/t.nt1000.df6.1250.rds")
 
 t.nt10.df3.1500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df3.1500.rds")
 t.nt10.df6.1500 <- readRDS(file = "rdsFiles/tdist/t.nt10.df6.1500.rds")
