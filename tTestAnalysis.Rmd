@@ -185,7 +185,7 @@ ZAD.plot.nt10 / ZCVM.plot.nt10
 ```
 \newpage
 
-```{r r fig.height=8, fig.width=7}
+```{r fig.height=8, fig.width=7}
 # Sample Usage: fix nt = 10000
 ZAD.plot.nt1000 <- powerPlot(tAnalysis.list, "nt", 1000, "ZAD", 0.05)
 ZCVM.plot.nt1000 <- powerPlot(tAnalysis.list, "nt", 1000, "ZCVM", 0.05)
@@ -193,5 +193,24 @@ ZCVM.plot.nt1000 <- powerPlot(tAnalysis.list, "nt", 1000, "ZCVM", 0.05)
 ZAD.plot.nt1000 / ZCVM.plot.nt1000
 ```
 
+\newpage
 
+```{r}
+# Load the data
+t.nt10.df3.45000 <- readRDS("rdsFiles/tdist/betaFits/t.nt10.df3.45000.rds")
+t.nt10.df6.45000 <- readRDS("rdsFiles/tdist/betaFits/t.nt10.df6.45000.rds")
+```
+
+```{r fig.height=8, fig.width=7}
+showSlugs(t.nt10.df3.45000, shape1 = 1, shape2 = 1, n = 45000, 
+                       boots = 5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+```
+
+
+```{r fig.height=8, fig.width=7}
+showSlugs(t.nt10.df6.45000, shape1 = 1, shape2 = 1, n = 45000, 
+                       boots = 2.5e3, alpha = 0.05, use.profile = TRUE, 
+                       show.subplots = TRUE)
+```
 
