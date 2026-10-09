@@ -44,6 +44,8 @@ cvmPlot.Rout: cvmPlot.R cvmTest.rds
 ## Playing with equivalence testing …
 betaFit.Rout: betaFit.R
 
+tDistAnalysis.html: tDistAnalysis.Rmd
+
 ######################################################################
 
 Ignore += *.html
