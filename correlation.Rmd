@@ -13,37 +13,45 @@ library(MASS)
 ## **Simulation:**
 
 ```{r}
+
+corSignedP <- function(s1, s2){
+	test <- cor.test(s1, s2)
+	P <- test$p.value
+	if (test$statistic <0) return(P)
+	return(1-P)
+}
+```
+
+```{r}
 simCorr <- function(n){
   dat.null <- mvrnorm(n, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
-  dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,2]^2
+  dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,1]^2
   
   dat.corr <- mvrnorm(n, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
   dat.corr.sqr <- dat.corr; dat.corr.sqr[,2] <- dat.corr.sqr[,2]^2
   
-  pval.null <- cor.test(dat.null[,1], dat.null[,2],
-                        method = "pearson")$p.value
-  pval.null.nonlin <- cor.test(dat.null.sqr[,1], dat.null.sqr[,2], 
-                               method = "pearson")$p.value
-  pval.corr <- cor.test(dat.corr[,1], dat.corr[,2], 
-                        method = "pearson")$p.value
-  pval.corr.sqr <- cor.test(dat.corr.sqr[,1], dat.corr.sqr[,2], 
-                            method = "pearson")$p.value
+  pval.null <- corSignedP(dat.null[,1], dat.null[,2])
+  pval.null.nonlin <- corSignedP(dat.null.sqr[,1], dat.null.sqr[,2])
+  pval.corr <- corSignedP(dat.corr[,1], dat.corr[,2]) 
+  pval.corr.sqr <- corSignedP(dat.corr.sqr[,1], dat.corr.sqr[,2]) 
   
   pvals <- c("null" = pval.null, "null.nonlin" = pval.null.nonlin, 
              "corr" = pval.corr, "corr.sqr" = pval.corr.sqr)
   return(pvals)
 }
-
-n <- 10000
-pvals <- replicate(n, simCorr(2500))
 ```
 
+```{r}
+numSims <- 10000
+sampSize <- 10
+pvals <- replicate(numSims, simCorr(sampSize))
+```
 \newpage
 
 **Case 1: Centered Null Distribution**
 
 ```{r}
-dat.null <- mvrnorm(n, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
+dat.null <- mvrnorm(sampSize, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
 plot(dat.null)
 
 hist(pvals[1,], breaks = seq(0,1,length.out = 41))
@@ -65,7 +73,7 @@ hist(pvals[2,], breaks = seq(0,1,length.out = 41))
 **Case 3: Correlated Data**
 
 ```{r}
-dat.corr <- mvrnorm(n, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
+dat.corr <- mvrnorm(sampSize, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
 plot(dat.corr)
 
 hist(pvals[3,], breaks = seq(0,1,length.out = 41))

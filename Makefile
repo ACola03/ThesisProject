@@ -14,6 +14,13 @@ Ignore += *_files
 
 ######################################################################
 
+## tDistAnalysis.html: tDistAnalysis.Rmd
+## correlation.html: correlation.Rmd
+
+## corSignedP.Rout: corSignedP.R
+
+######################################################################
+
 # IN THIS FILE:
 # 1. 4-Panel Histograms for Wald vs Profile P-Values (meta-analysis)
 # 2. 2-Panel Line plots for coverage across n
