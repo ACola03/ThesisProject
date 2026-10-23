@@ -1,0 +1,83 @@
+---
+title: "Correlation Under Non-Linearity"
+output:
+  pdf_document: default
+fontsize: 12pt
+date: "2026-10-21"
+---
+
+```{r include=FALSE}
+library(MASS)
+```
+
+## **Simulation:**
+
+```{r}
+simCorr <- function(n){
+  dat.null <- mvrnorm(n, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
+  dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,2]^2
+  
+  dat.corr <- mvrnorm(n, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
+  dat.corr.sqr <- dat.corr; dat.corr.sqr[,2] <- dat.corr.sqr[,2]^2
+  
+  pval.null <- cor.test(dat.null[,1], dat.null[,2],
+                        method = "pearson")$p.value
+  pval.null.nonlin <- cor.test(dat.null.sqr[,1], dat.null.sqr[,2], 
+                               method = "pearson")$p.value
+  pval.corr <- cor.test(dat.corr[,1], dat.corr[,2], 
+                        method = "pearson")$p.value
+  pval.corr.sqr <- cor.test(dat.corr.sqr[,1], dat.corr.sqr[,2], 
+                            method = "pearson")$p.value
+  
+  pvals <- c("null" = pval.null, "null.nonlin" = pval.null.nonlin, 
+             "corr" = pval.corr, "corr.sqr" = pval.corr.sqr)
+  return(pvals)
+}
+
+n <- 10000
+pvals <- replicate(n, simCorr(2500))
+```
+
+\newpage
+
+**Case 1: Centered Null Distribution**
+
+```{r}
+dat.null <- mvrnorm(n, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
+plot(dat.null)
+
+hist(pvals[1,], breaks = seq(0,1,length.out = 41))
+```
+
+\newpage
+
+**Case 2: Squaring the Null Distribution (Non-linearity in one marginal)**
+
+```{r}
+dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,2]^2
+plot(dat.null.sqr)
+
+hist(pvals[2,], breaks = seq(0,1,length.out = 41))
+```
+
+\newpage
+
+**Case 3: Correlated Data**
+
+```{r}
+dat.corr <- mvrnorm(n, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
+plot(dat.corr)
+
+hist(pvals[3,], breaks = seq(0,1,length.out = 41))
+```
+
+\newpage
+
+**Case 4: Squaring the Correlated Data(Non-linearity in one marginal)**
+
+```{r}
+dat.corr.sqr <- dat.corr; dat.corr.sqr[,2] <- dat.corr.sqr[,2]^2
+plot(dat.corr.sqr)
+
+hist(pvals[4,], breaks = seq(0,1,length.out = 41))
+```

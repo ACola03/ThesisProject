@@ -1,15 +1,14 @@
-
 ##### 2026 Sep 02 (Wed)
 
 We are going to call the idea of looking at 2,000 to 5,000 p-values and seeing and checking the coverage and piano-ness of them an experiment. The idea is that if we're developing or testing statistical methods, we'll want to do experiments like this, and we're trying to probe how well they might work.
 
 Our first step in this direction is to do what we call null experiments. A null experiment is 2,000 to 5,000 (or even 10,000 because they're cheap) p-values that are actually just chosen from a uniform distribution.
 
-One thing we've learned from trying to explore null experiments is that the MLE with Wald is not working reliably for the shape parameter. Jonathan is currently suggesting we treat this attempt to analyze the null experiment as a real experiment. So we can look at 2,000 or 5,000 attempts to analyze the null experiment and make a piano plot of that and do an MLE fit to that. This is why he was saying that all this attempt to figure out the histograms was feeling a little bit meta. 
+One thing we've learned from trying to explore null experiments is that the MLE with Wald is not working reliably for the shape parameter. Jonathan is currently suggesting we treat this attempt to analyze the null experiment as a real experiment. So we can look at 2,000 or 5,000 attempts to analyze the null experiment and make a piano plot of that and do an MLE fit to that. This is why he was saying that all this attempt to figure out the histograms was feeling a little bit meta.
 
-As a side question, we know how to associate Wald confidence intervals with p-values, but it seems less obvious right now how to associate profile confidence intervals with p-values. We are definitely interested in reanalyzing our null experiments with profile confidence intervals, and figuring out the link to p-values seems like an important step in this. 
+As a side question, we know how to associate Wald confidence intervals with p-values, but it seems less obvious right now how to associate profile confidence intervals with p-values. We are definitely interested in reanalyzing our null experiments with profile confidence intervals, and figuring out the link to p-values seems like an important step in this.
 
-We also need to work our way back to coverage. All the work here takes an experiment and looks at all 2000 (or more) p-values and their overall shape. But we've discussed several times in the last few weeks just looking at coverage at the experiment level, meaning what proportion of p-values in each experiment are at the extreme ends, and then at the higher level, asking what proportion of experiments have both their p-values between both of their non-coverage proportions between 2% and 3%? Right? 
+We also need to work our way back to coverage. All the work here takes an experiment and looks at all 2000 (or more) p-values and their overall shape. But we've discussed several times in the last few weeks just looking at coverage at the experiment level, meaning what proportion of p-values in each experiment are at the extreme ends, and then at the higher level, asking what proportion of experiments have both their p-values between both of their non-coverage proportions between 2% and 3%? Right?
 
 **Meeting Notes: August 13th**
 
@@ -130,69 +129,69 @@ Start by reading what Roswell wrote about the fuzzing logic. See if you think it
 
 **Improving the Wald:**
 
--   Are there correction methods for Wald GLM?
+- Are there correction methods for Wald GLM?
 
--   Are there better approximations than the Wald?
+- Are there better approximations than the Wald?
 
--   How well do these tests work? are there rules of thumb when to use the Wald?
+- How well do these tests work? are there rules of thumb when to use the Wald?
 
--   permutation wrapper
+- permutation wrapper
 
 **Plot Specifics:**
 
--   Statistics for piano plots
+- Statistics for piano plots
 
--   Variance of bar heights
+- Variance of bar heights
 
--   Getting into SlugPlots (double-check):
+- Getting into SlugPlots (double-check):
 
--   Good visual tool for efficiency
+- Good visual tool for efficiency
 
--   Rules of thumb about how un-normal their data should be
+- Rules of thumb about how un-normal their data should be
 
 **Supervised and Unsupervised:**
 
--   The original “fuzzed” piano plots are “supervised”
+- The original “fuzzed” piano plots are “supervised”
 
--   Making use of knowledge about the values of the statistic
+- Making use of knowledge about the values of the statistic
 
--   The piano plots we're trying with Wald are unsupervised (I think)
+- The piano plots we're trying with Wald are unsupervised (I think)
 
--   That is, based on aggregating P values, not based on knowledge about possible data values
+- That is, based on aggregating P values, not based on knowledge about possible data values
 
--   Try to confirm you can get perfect unsupervised piano plots for binomial or Poisson
+- Try to confirm you can get perfect unsupervised piano plots for binomial or Poisson
 
--   Unsupervised fuzzing of something that is clean (exact poisson test)
+- Unsupervised fuzzing of something that is clean (exact poisson test)
 
--   Then empirically fuzz for Wald when $\lambda = 50$
+- Then empirically fuzz for Wald when $\lambda = 50$
 
--   and then for LRT
+- and then for LRT
 
 **Weird Wald P-Values:** (ideas that were brought up)
 
--   Increase $\lambda \rightarrow 50$
+- Increase $\lambda \rightarrow 50$
 
--   Is 0 (count) logically 0 or 1 (p-value) ... do it logically without guessing to make my brain hurt
+- Is 0 (count) logically 0 or 1 (p-value) ... do it logically without guessing to make my brain hurt
 
 **Fitting Models:**
 
--   Fit simple regression models (1 or 2 samples)
+- Fit simple regression models (1 or 2 samples)
 
--   See how bad they are if assumptions are violated (residuals, non-normal response)
+- See how bad they are if assumptions are violated (residuals, non-normal response)
 
--   Linear Model:
+- Linear Model:
 
--   Estimate
+- Estimate
 
--   Not sure of assumptions
+- Not sure of assumptions
 
--   Run permutations to fit model
+- Run permutations to fit model
 
--   Get confidence interval from permutation $\rightarrow$ should this always be done?
+- Get confidence interval from permutation $\rightarrow$ should this always be done?
 
 **Applications:**
 
--   When and where do we actually use a GLM
+- When and where do we actually use a GLM
 
 ------------------------------------------------------------------------
 
@@ -202,67 +201,67 @@ Start by reading what Roswell wrote about the fuzzing logic. See if you think it
 
 **Improving The Wald:**
 
--   Correction methods:
+- Correction methods:
 
--   I haven't come up with anything yet, but the Wald normal approximation assigns a lower p-value to the mean response than the exact test.
+- I haven't come up with anything yet, but the Wald normal approximation assigns a lower p-value to the mean response than the exact test.
 
--   For example, if $\lambda=3$, the exact p-value is $0.6472$ whereas the Wald gives $0.5$. So this might be the reason why the piano plots I was showing last week were slightly left-biased towards smaller p-values. Knowing this, a correction method might involve pushing these in the opposite direction ... but then it's no longer a Wald test (which should be perfectly fine).
+- For example, if $\lambda=3$, the exact p-value is $0.6472$ whereas the Wald gives $0.5$. So this might be the reason why the piano plots I was showing last week were slightly left-biased towards smaller p-values. Knowing this, a correction method might involve pushing these in the opposite direction ... but then it's no longer a Wald test (which should be perfectly fine).
 
--   Poisson calculator link when I don't want to use R: <https://stattrek.com/online-calculator/poisson>
+- Poisson calculator link when I don't want to use R: <https://stattrek.com/online-calculator/poisson>
 
--   Better approximations than the Wald:
+- Better approximations than the Wald:
 
--   It appears that Likelihood-Ratio Tests and Score Tests are existing alternatives
+- It appears that Likelihood-Ratio Tests and Score Tests are existing alternatives
 
--   Links (*better approximations than the wald for poisson family glm*): [link1](https://stats.stackexchange.com/questions/449344/likelihood-ratio-wald-and-score-are-equivalent){.uri}
+- Links (*better approximations than the wald for poisson family glm*): [link1](https://stats.stackexchange.com/questions/449344/likelihood-ratio-wald-and-score-are-equivalent){.uri}
 
--   Google AI refers to the issue as the **Hauck–Donner effect**, where the standard error inflates faster than the coefficient, leading to falsely non-significant results for large coefficients.
+- Google AI refers to the issue as the **Hauck–Donner effect**, where the standard error inflates faster than the coefficient, leading to falsely non-significant results for large coefficients.
 
--   I will look into these once we understand *Supervised* and *Unsupervised*
+- I will look into these once we understand *Supervised* and *Unsupervised*
 
 **Plot Specifics:**
 
--   Statistics for pianoPlots:
+- Statistics for pianoPlots:
 
--   When looking at the variance of bar heights, we *obviously* prefer a small variance to indicate that the p-values are uniformly spread across the domain. However, should we come up with rules of thumb on how variable the heights should be? or leave it as a clarity interpretation where we don't specifically set any threshold and otherrwise let the user decide whether the variance is large enough to make it unclear whether the p-values uniformly distributed.
+- When looking at the variance of bar heights, we *obviously* prefer a small variance to indicate that the p-values are uniformly spread across the domain. However, should we come up with rules of thumb on how variable the heights should be? or leave it as a clarity interpretation where we don't specifically set any threshold and otherrwise let the user decide whether the variance is large enough to make it unclear whether the p-values uniformly distributed.
 
--   Getting into slugPlots:
+- Getting into slugPlots:
 
--   The slugPlots are where we order the confidence intervals and ideally, 2.5% are too low, and 2.5% are too high (missing the true value of the estimate).
+- The slugPlots are where we order the confidence intervals and ideally, 2.5% are too low, and 2.5% are too high (missing the true value of the estimate).
 
--   I still have to look into how the confidence intervals are ordered, but an introduction is given in *Assessing Hill Diversity.*
+- I still have to look into how the confidence intervals are ordered, but an introduction is given in *Assessing Hill Diversity.*
 
--   When we said *good tool for efficiency*, was the implied meaning that it allows us to see how often our confidence intervals are too low/high (the purpose of the plot)
+- When we said *good tool for efficiency*, was the implied meaning that it allows us to see how often our confidence intervals are too low/high (the purpose of the plot)
 
 **Supervised and Unsupervised:**
 
--   The original “fuzzed” piano plots are “supervised”:
+- The original “fuzzed” piano plots are “supervised”:
 
--   If we say this, then are we implying that using p-values from the exact null distribution (not any approximations) is a supervised approach.
+- If we say this, then are we implying that using p-values from the exact null distribution (not any approximations) is a supervised approach.
 
--   If we assume the above, I cannot then apply an unsupervised fuzzing approach to something that is clean.
+- If we assume the above, I cannot then apply an unsupervised fuzzing approach to something that is clean.
 
--   So, I think it might make more sense to have the distinction of supervision defined as making use of the poisson count that generated that p-value. To be specific, in the Wald case, the count of 0 is binned together with the mean response, which shouldn't occur if 0 has some probability mass.
+- So, I think it might make more sense to have the distinction of supervision defined as making use of the poisson count that generated that p-value. To be specific, in the Wald case, the count of 0 is binned together with the mean response, which shouldn't occur if 0 has some probability mass.
 
--   If we are unsupervised, we only look at the obtained wald p-values, ignore the counts that generated them, order the p-values, and fuzz within the lagged intervals. If we are supervised, we fuzz based on the ordering of the count instead of the p-value; an issue I found is that due to the inflated p-value at 0, some intervals will have a minimum larger than the maximum ... (see pdf from last meeting)
+- If we are unsupervised, we only look at the obtained wald p-values, ignore the counts that generated them, order the p-values, and fuzz within the lagged intervals. If we are supervised, we fuzz based on the ordering of the count instead of the p-value; an issue I found is that due to the inflated p-value at 0, some intervals will have a minimum larger than the maximum ... (see pdf from last meeting)
 
--   Is this a correct interpretation of supervision?
+- Is this a correct interpretation of supervision?
 
 **Weird Wald P-Values:**
 
--   Increase $\lambda \rightarrow50$ results sent by email (since they won't show on github repo):
--   Non-Fuzzed Wald P-Values
--   Fuzzed P-Values - excluding any counts of 0 (1,10,50)
--   Fuzzed P-Values - including all counts of 0 (1,10,50) ... main object of interest
--   As expected, larger $\lambda$ produces better pianos
+- Increase $\lambda \rightarrow50$ results sent by email (since they won't show on github repo):
+- Non-Fuzzed Wald P-Values
+- Fuzzed P-Values - excluding any counts of 0 (1,10,50)
+- Fuzzed P-Values - including all counts of 0 (1,10,50) ... main object of interest
+- As expected, larger $\lambda$ produces better pianos
 
 **Fitting Models:**
 
--   These points were not yet explored since the above is a higher priority.
+- These points were not yet explored since the above is a higher priority.
 
 **Applications:**
 
--   Not explored, but can be discussed if time permits.
+- Not explored, but can be discussed if time permits.
 
 ##### 2026 Jul 22 (Wed)
 
