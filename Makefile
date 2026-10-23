@@ -14,7 +14,15 @@ Ignore += *_files
 
 ######################################################################
 
+# IN THIS FILE:
+# 1. 4-Panel Histograms for Wald vs Profile P-Values (meta-analysis)
+# 2. 2-Panel Line plots for coverage across n
+# 3. 2-Panel Line plots for p-values across n
+# 4. SlugPlot accompanied by a 2-panel focused view of each tail region 
 sept25.Rout: sept25.R
+
+## What is logitnormal?
+oct09.Rout: oct09.R
 
 ######################################################################
 
