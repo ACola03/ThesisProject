@@ -7,85 +7,204 @@ date: "2026-10-21"
 ---
 
 ```{r include=FALSE}
+source("correlation_Fun.R")
 library(MASS)
 ```
 
-## **Simulation:**
+# **Compute Correlation Test P-Value**
+The modified function allows you to specify the null value of the correlation while also
+utilizing the p-value mechanism we like, with the ability to specify what kind of p-value
+we want to be returned. We should refer to the prior version of this file to compare the 
+calculation of the p-value (didn't previously divide by 2).
 
 ```{r}
-
-corSignedP <- function(s1, s2){
-	test <- cor.test(s1, s2)
-	P <- test$p.value
-	if (test$statistic <0) return(P)
-	return(1-P)
+cor.test2 <- function(x, y, r.null, p.out){
+  
+  r <- cor(x, y)
+  n <- length(x)
+  
+  if (r.null == 0){
+    stat <- r*sqrt((n-2)/(1-r^2)) # ~ t_{n-2}
+    pval.two <- 2*min(pt(stat, n-2, lower.tail = TRUE), 
+                      pt(stat, n-2, lower.tail = FALSE))
+  } else {
+    stat <- (atanh(r) - atanh(r.null))/(1/sqrt(n-3)) # approx. ~ N(0,1)
+    pval.two <- 2*min(pnorm(stat, lower.tail = TRUE), 
+                      pnorm(stat, lower.tail = FALSE))
+  }
+  
+  if (p.out == "two") return(pval.two)
+  
+  if (stat < 0){
+    pval <- pval.two/2
+  } else{
+    pval <- 1-pval.two/2
+  }
+  
+  return(pval)
 }
 ```
 
+\newpage
+
+## **Simulation Function:**
+This was slightly vibe-coded - I had given a prompt to modify the function to make 
+it take various input and have better overall style. 
+
 ```{r}
-simCorr <- function(n){
-  dat.null <- mvrnorm(n, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
-  dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,1]^2
+simCorr <- function(n, rho = 0.6, p.out = c("two", "signed")) {
   
-  dat.corr <- mvrnorm(n, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
-  dat.corr.sqr <- dat.corr; dat.corr.sqr[,2] <- dat.corr.sqr[,2]^2
+  p.out <- match.arg(p.out)
   
-  pval.null <- corSignedP(dat.null[,1], dat.null[,2])
-  pval.null.nonlin <- corSignedP(dat.null.sqr[,1], dat.null.sqr[,2])
-  pval.corr <- corSignedP(dat.corr[,1], dat.corr[,2]) 
-  pval.corr.sqr <- corSignedP(dat.corr.sqr[,1], dat.corr.sqr[,2]) 
+  if (n < 4)
+    stop("n must be at least 4.")
   
-  pvals <- c("null" = pval.null, "null.nonlin" = pval.null.nonlin, 
-             "corr" = pval.corr, "corr.sqr" = pval.corr.sqr)
+  if (!is.finite(rho) || rho == 0 || abs(rho) >= 1)
+    stop("rho must be nonzero and strictly between -1 and 1.")
+  
+  # 1. Independent, jointly normal variables
+  dat.null <- mvrnorm(
+    n, mu = c(0, 0), Sigma = diag(2)
+  )
+  
+  # 2. Independent variables, one squared
+  dat.null.indep.sqr <- dat.null
+  dat.null.indep.sqr[, 2] <- dat.null.indep.sqr[, 2]^2
+  
+  # 3. Nonlinear dependence: X versus X^2
+  x <- rnorm(n)
+  dat.null.nonlin <- cbind(x, x^2)
+  
+  # 4. Correlated, jointly normal variables
+  Sigma.rho <- matrix(
+    c(1, rho, rho, 1),
+    nrow = 2,
+    byrow = TRUE
+  )
+  
+  dat.corr <- mvrnorm(
+    n, mu = c(0, 0), Sigma = Sigma.rho
+  )
+  
+  # 5. Correlated normal variables, then square Y
+  dat.corr.sqr <- dat.corr
+  dat.corr.sqr[, 2] <- dat.corr.sqr[, 2]^2
+  
+  # Calculate p-values under the appropriate null hypotheses
+  pvals <- c(
+    null = cor.test2(
+      dat.null[, 1], dat.null[, 2],
+      r.null = 0, p.out = p.out
+    ),
+    
+    null.indep.sqr = cor.test2(
+      dat.null.indep.sqr[, 1], dat.null.indep.sqr[, 2],
+      r.null = 0, p.out = p.out
+    ),
+    
+    null.nonlin = cor.test2(
+      dat.null.nonlin[, 1], dat.null.nonlin[, 2],
+      r.null = 0, p.out = p.out
+    ),
+    
+    corr = cor.test2(
+      dat.corr[, 1], dat.corr[, 2],
+      r.null = rho, p.out = p.out
+    ),
+    
+    corr.sqr = cor.test2(
+      dat.corr.sqr[, 1], dat.corr.sqr[, 2],
+      r.null = 0, p.out = p.out
+    )
+  )
+  
   return(pvals)
 }
 ```
 
+\newpage
+
+**Running The Simulation:**
+Sample code used to execute the above functions.
+
 ```{r}
 numSims <- 10000
-sampSize <- 10
-pvals <- replicate(numSims, simCorr(sampSize))
-```
-\newpage
+sampSize <- 2500
 
-**Case 1: Centered Null Distribution**
+set.seed(123)
 
-```{r}
-dat.null <- mvrnorm(sampSize, c(0,0), matrix(c(1, 0, 0, 1), nrow = 2, byrow = TRUE))
-plot(dat.null)
+pvals.two <- replicate(
+  numSims,
+  simCorr(sampSize, rho = 0.6, p.out = "two")
+)
 
-hist(pvals[1,], breaks = seq(0,1,length.out = 41))
-```
-
-\newpage
-
-**Case 2: Squaring the Null Distribution (Non-linearity in one marginal)**
-
-```{r}
-dat.null.sqr <- dat.null; dat.null.sqr[,2] <- dat.null.sqr[,2]^2
-plot(dat.null.sqr)
-
-hist(pvals[2,], breaks = seq(0,1,length.out = 41))
+pvals.signed <- replicate(
+  numSims,
+  simCorr(sampSize, rho = 0.6, p.out = "signed")
+)
 ```
 
 \newpage
 
-**Case 3: Correlated Data**
+**Case 1:  Independent, jointly normal variables**
 
-```{r}
-dat.corr <- mvrnorm(sampSize, c(0,0), matrix(c(1, 1, 1, 1), nrow = 2, byrow = TRUE))
-plot(dat.corr)
-
-hist(pvals[3,], breaks = seq(0,1,length.out = 41))
+```{r fig.height=4, fig.width=6}
+hist(
+  pvals.signed["null", ],
+  breaks = seq(0, 1, length.out = 41),
+  main = "Pearson p-values:  X versus Y",
+  xlab = "Signed p-value"
+)
 ```
 
 \newpage
 
-**Case 4: Squaring the Correlated Data(Non-linearity in one marginal)**
+**Case 2: Independent variables, one squared**
 
-```{r}
-dat.corr.sqr <- dat.corr; dat.corr.sqr[,2] <- dat.corr.sqr[,2]^2
-plot(dat.corr.sqr)
-
-hist(pvals[4,], breaks = seq(0,1,length.out = 41))
+```{r fig.height=4, fig.width=6}
+hist(
+  pvals.signed["null.indep.sqr", ],
+  breaks = seq(0, 1, length.out = 41),
+  main = "Pearson p-values: X versus Y^2",
+  xlab = "Signed p-value"
+)
 ```
+
+\newpage
+
+**Case 3: Nonlinear dependence: X versus X^2**
+
+```{r fig.height=4, fig.width=6}
+hist(
+  pvals.signed["null.nonlin", ],
+  breaks = seq(0, 1, length.out = 41),
+  main = "Pearson p-values: X versus X^2",
+  xlab = "Signed p-value"
+)
+```
+
+\newpage
+
+**Case 4: Correlated, jointly normal variables**
+
+```{r fig.height=4, fig.width=6}
+hist(
+  pvals.signed["corr", ],
+  breaks = seq(0, 1, length.out = 41),
+  main = "Pearson p-values: X versus Y (Correlated)",
+  xlab = "Signed p-value"
+)
+```
+\newpage
+
+**Case 5: Correlated normal variables, then square Y**
+
+```{r fig.height=4, fig.width=6}
+hist(
+  pvals.signed["corr.sqr", ],
+  breaks = seq(0, 1, length.out = 41),
+  main = "Pearson p-values: X versus Y^2 (Correlated)",
+  xlab = "Signed p-value"
+)
+```
+
