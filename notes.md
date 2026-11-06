@@ -1,8 +1,12 @@
+##### 2026 Nov 04 (Wed)
+
+Currently interested in looking at Legendre Polynomials. This is in relation to the Truncated Quadratic discussion we had, but an extension of that so that we aren't constrained to two shapes (linear and quadratic). Additionally, Legendre Polynomials can (and will) use orthonormal basis functions where we can do (independent) inference on the coefficients on each basis. The testing procedure will be similar to what I have been doing previously, but with an added layer since the test statistic is a sample mean.
+
 ##### 2026 Oct 09 (Fri)
 
 We are interested in whether the beta statistic approach is useful, and we're going to evaluate that by looking at pianos of size 3000 for a T3 with 10 samples, because that's on the borderline of what we have reasonably good power for with our older statistics. More broadly, let's compare what pianos look like, coverage, beta fits and ZAD-like stats for a range near here (df 3-6; n 5-10; nExp 2000-5000)
 
-The bimodality of the T calls into question the whole beta approach, and that might be an argument for going back to the older statistics. The question is, do we have a way of doing something like non-inferiority for the older statistics? 
+The bimodality of the T calls into question the whole beta approach, and that might be an argument for going back to the older statistics. The question is, do we have a way of doing something like non-inferiority for the older statistics?
 
 To be honest, one could also imagine extending this argument to going all the way back to coverage. This would be a bit disappointing, but if that really turns out to be the best way to do it, we should be willing to admit that.
 

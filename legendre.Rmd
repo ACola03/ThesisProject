@@ -1,0 +1,192 @@
+---
+title: "Legendre Polynomials & Neyman Smooth Test"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+date: "2026-11-06"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+This week's progress is a continuation to our discussion last week where
+JD had brought up the idea of using a truncated quadratic distribution
+and further explored this idea with Copilot. On my own, I had prompted
+Copilot for a similar idea, where it had suggested to use Legendre
+Polynomials to perform a Neyman Smoothness Test. When implementing this,
+I used the first six basis functions along with normalization of the
+basis coefficients so that they would follow a known Standard Normal
+distribution. Since the basis functions are orthonormal, this indicates
+that we can construct individual SlugPlots for these coefficients, which
+have value zero under the null hypothesis that the p-values are uniform.
+However, typical inference on these coefficients is done by considering
+the squared sum of the normalized coefficients, where the test statistic
+follows a chi-squared distribution with the degrees of freedom being the
+number of coefficients that were estimated. This joint inference tests
+whether the additional coefficients are equal to 0. Such tests are
+called Neyman Smoothness Tests. I have these notes written down in my
+book, but this description should suffice.
+
+This .Rmd performs these smoothness tests. In particular, I revisit the
+t-test case that we previously had trouble with. From my analysis, it
+seems like this test is VERY powerful and gives strong signals against
+uniformity even when the p-values are generated from a Beta(0.95, 1).
+Although I hadn't mentioned it previously (since JD is already aware),
+modelling our p-values with these polynomials increases the range of
+shapes that we can perform our analysis on, primarily bimodal p-values.
+The code below demonstrates this ability.
+
+Also, I asked Copilot to compare the Legendre and Truncated Quadratic.
+It said they were very similar, but did prefer the Neyman Test.
+
+```{r message=FALSE, warning=FALSE}
+# Imports
+source("legendre_Fun.R")
+library(ggplot2)
+library(purrr)
+library(dplyr)
+
+# Base Configurations
+n.neyman <- 5000; n.legendre <- 1000; n.t.list <- c(10,100)
+```
+
+\newpage
+
+For example, the code below shows how it is strongly flagging a
+Beta(0.95, 1) against uniformity. I think this is a good thing, however,
+one might worry that it is too strong (if that makes any sense)? By
+looking at the individual pianos for the coefficients, we can identify
+which shape is contributing to the non-uniformity.
+
+```{r}
+pvals <- matrix(rbeta(n = n.neyman*n.legendre, shape1 = 0.95, shape2 = 1)
+                , nrow = n.legendre)
+lc <- legendre.coef(pvals)
+lp <- legendre.pval(n.legendre, lc, "two")
+```
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+par(mfrow = c(3,1))
+
+hist(lp[,"joint"], breaks = seq(0,1,length.out = 41), 
+     main = "Neyman Smoothness Test", xlab = "p")
+
+hist(lp[,"theta1"], breaks = seq(0,1,length.out = 41), 
+     main = "P-Values for Coefficient of Theta1", xlab = "p")
+
+hist(lp[,"theta6"], breaks = seq(0,1,length.out = 41), 
+     main = "P-Values for Coefficient of Theta6", xlab = "p")
+```
+
+\newpage
+
+For verification, here is what happens when the p-values are uniform.
+
+```{r}
+pvals <- matrix(rbeta(n = n.neyman*n.legendre, shape1 = 1, shape2 = 1)
+                , nrow = n.legendre)
+lc <- legendre.coef(pvals)
+lp <- legendre.pval(n.legendre, lc, "two")
+```
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+par(mfrow = c(3,1))
+
+hist(lp[,"joint"], breaks = seq(0,1,length.out = 41), 
+     main = "Neyman Smoothness Test", xlab = "p")
+
+hist(lp[,"theta1"], breaks = seq(0,1,length.out = 41), 
+     main = "P-Values for Coefficient of Theta1", xlab = "p")
+
+hist(lp[,"theta2"], breaks = seq(0,1,length.out = 41), 
+     main = "P-Values for Coefficient of Theta2", xlab = "p")
+```
+
+\newpage
+
+```{r fig.height=6, fig.width=7}
+# ----- Config 1: df = 2
+set.seed(1)
+df2 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+              dist.args = list(df = 2), chunk.neyman = 1000, 
+              t.p.out = "left", ney.p.out = "left")
+```
+
+\newpage
+
+```{r fig.height=6, fig.width=7}
+# ----- Config 2: df = 5
+set.seed(1)
+df5 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+              dist.args = list(df = 5), chunk.neyman = 1000, 
+              t.p.out = "left", ney.p.out = "left")
+```
+
+\newpage
+
+```{r fig.height=6, fig.width=7}
+# ----- Config 3: df = 10
+set.seed(1)
+df10 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+              dist.args = list(df = 10), chunk.neyman = 1000, 
+              t.p.out = "left", ney.p.out = "left")
+```
+
+```{r fig.height=6, fig.width=7}
+# ----- Config 4: df = 15
+set.seed(1)
+df15 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                      dist.args = list(df = 15), chunk.neyman = 1000, 
+                      t.p.out = "left", ney.p.out = "left")
+```
+
+\newpage
+
+```{r fig.height=6, fig.width=7}
+# ----- Config 5: df = 30
+set.seed(1)
+df30 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                      dist.args = list(df = 30), chunk.neyman = 1000, 
+                      t.p.out = "left", ney.p.out = "left")
+```
+
+\newpage
+
+Also, we might have a preference on which p-values we output from the
+t-test (and neyman test). If we recall the bimodal piano for the t-test,
+those p-values were from the left-tailed (signed) approach. However, if
+we made it so the t-test outputs a two-tailed p-value, then the bimodal
+structure doesn't appear. This should be noted, however this doesn't
+give us reason to go back to the Beta approach since we want a method
+that can handle all p-value structures. Example below:
+
+```{r fig.height=6, fig.width=4}
+par(mfrow = c(2,1))
+set.seed(1)
+pv <- tTest.pvalRaw(5000, 10, "t", dist.args = list(df = 2), t.p.out = "left")
+hist(pv, breaks = seq(0,1,length.out = 41))
+set.seed(1)
+pv <- tTest.pvalRaw(5000, 10, "t", dist.args = list(df = 2), t.p.out = "two")
+hist(pv, breaks = seq(0,1,length.out = 41))
+```
+
+\newpage
+
+Also also, one might think that the raw t-test p-values in the upper
+rows of the panels may not look uniform when df = 15 or 30. This is
+because there are only 1000 points being plotted. If we increase that to
+better observe the distribution, we obtain the following:
+
+```{r fig.height=3, fig.width=5}
+set.seed(1)
+pv <- tTest.pvalRaw(10000, 10, "t", dist.args = list(df = 30), t.p.out = "left")
+hist(pv, breaks = seq(0,1,length.out = 41))
+```
+
+\newpage
+
+I was planning on getting the slugPlots for the individual coefficients
+on here but didn't have enough time (I might have a chance today).
+However, I am optimistic about this new statistic and think it is widely
+applicable and solves many of our earlier problems. Thoughts?
