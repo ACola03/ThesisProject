@@ -423,6 +423,11 @@ legendre.wrap <- function(
   pianoPanel(pvalRaw, pvalNeyman, n.t.list, dist.args$df)
 }
 
-
-
-
+chiLimit <- function(stat, df, level = 0.95) {
+	if (pchisq(stat, df) < 1-level) return(0)
+	uniroot(
+		function(l) pchisq(stat, df, ncp = l) - (1-level),
+		c(0, stat),
+		extendInt = "downX"
+	)$root
+}

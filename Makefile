@@ -33,6 +33,13 @@ oct09.Rout: oct09.R
 
 ######################################################################
 
+legendre.html: legendre.Rmd legendre_Fun.R
+legendre.pdf: legendre.Rmd legendre_Fun.R
+
+legTest.Rout: legTest.R legendre_Fun.R
+
+######################################################################
+
 ## betaSlugs.Rout: betaSlugs.R betaSlugs.Rlog
 
 ## Naive exploration
