@@ -1,0 +1,106 @@
+---
+title: "Neyman Smooth Test Continued"
+output:
+  pdf_document: default
+date: "2026-11-13"
+fontsize: 12pt
+---
+
+### Last Week:
+
+- We discussed that we would only prefer this Neyman approach if we could get some sort of confidence interval and coverage value for the experiment.
+
+- Also wanted to compare it directly to ZAD ... which isn't incorporated yet but shouldn't take long now that I've made improvements to `legendre_Fun.R`.
+
+- The changes include the following:
+
+  - User-specified basis choice
+
+  - Incorporated the (Claude) `chiLimit()` function to compute an upper bound on the ncp of the non-central chi-square that could have generated the observed Neyman statistic
+
+  - Introducing volcanoPlots ... a visual diagnostic (like the slugPlot) to investigate whether the ncp upper bounds are behaving nominally. Under the null they look like volcanos.
+
+With volcanoPlots, we would expect the lower 5% of the upper bounds to be estimated as 0 and the upper 5% of the upper bounds to exceed some chosen threshold for the ncp upper bound. The threshold is taken as the 95th percentile (or user-defined) of an adejacently simulated null case of ncps.
+
+The plots don't look the best when I knit the file, but they look much better in the 'Plots' panel in RStudio. So I'll show the code for each experiment, but use .pngs to display the resulting panel. All results use n.t data points to generate a t-statistic, 2000 t-statistics for a single Neyman statistic, and a total of 2000 Neyman statistics. See `legendre.R`.
+
+```{r include=FALSE}
+source("legendre_Fun.R")
+n.neyman <- 2000; n.legendre <- 2000; n.t.list <- c(10,100)
+```
+
+\newpage
+
+**Experiment 1: t-distributed data (2 df)**
+
+```{r eval=FALSE}
+set.seed(1)
+df2 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                     dist.args = list(df = 2), which.basis = 1:4, 
+                     chunk.neyman = 1000, t.p.out = "left", ney.p.out = "left",
+                     level = 0.95, quantile = 0.95)
+```
+
+\vspace{1cm}
+
+![](t_df2.png)
+
+\newpage
+
+**Experiment 2: t-distributed data (5 df)**
+
+```{r eval=FALSE}
+set.seed(1)
+df5 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                     dist.args = list(df = 5), which.basis = 1:4, 
+                     chunk.neyman = 1000, t.p.out = "left", ney.p.out = "left",
+                     level = 0.95, quantile = 0.95)
+```
+
+\vspace{1cm}
+
+![](t_df5.png)
+
+\newpage
+
+**Experiment 3: t-distributed data (10 df)**
+
+```{r eval=FALSE}
+set.seed(1)
+df10 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                     dist.args = list(df = 10), which.basis = 1:4, 
+                     chunk.neyman = 1000, t.p.out = "left", ney.p.out = "left",
+                     level = 0.95, quantile = 0.95)
+```
+
+\vspace{1cm}
+
+![](t_df10.png) \newpage
+
+**Experiment 4: t-distributed data (15 df)**
+
+```{r eval=FALSE}
+set.seed(1)
+df15 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                     dist.args = list(df = 15), which.basis = 1:4, 
+                     chunk.neyman = 1000, t.p.out = "left", ney.p.out = "left",
+                     level = 0.95, quantile = 0.95)
+```
+
+\vspace{1cm}
+
+![](t_df15.png) \newpage
+
+**Experiment 5: t-distributed data (30 df)**
+
+```{r eval=FALSE}
+set.seed(1)
+df30 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t", 
+                     dist.args = list(df = 30), which.basis = 1:4, 
+                     chunk.neyman = 1000, t.p.out = "left", ney.p.out = "left",
+                     level = 0.95, quantile = 0.95)
+```
+
+\vspace{1cm}
+
+![](t_df2.png)

@@ -190,3 +190,7 @@ I was planning on getting the slugPlots for the individual coefficients
 on here but didn't have enough time (I might have a chance today).
 However, I am optimistic about this new statistic and think it is widely
 applicable and solves many of our earlier problems. Thoughts?
+
+```{r}
+# est, lower, upper ... only wald interval
+```
