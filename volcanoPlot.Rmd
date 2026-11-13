@@ -103,4 +103,4 @@ df30 <- legendre.wrap(n.neyman, n.legendre, n.t.list, "t",
 
 \vspace{1cm}
 
-![](t_df2.png)
+![](t_df30.png)
